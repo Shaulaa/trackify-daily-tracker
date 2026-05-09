@@ -30,6 +30,9 @@ import {
 import { getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
+const ASSET_BASE =
+  document.querySelector('meta[name="trackify-asset-base"]')?.getAttribute('content') || './frontend/';
+
 // ── Firebase refs — lazy agar tidak race condition dengan firebase.js ──
 function getDB() {
   const app = getApps()[0];
@@ -318,7 +321,7 @@ export function getPermissionStatus() {
 // ── Send ───────────────────────────────────────────────────────
 function send(title, body, tag) {
   if (Notification.permission !== 'granted') return false;
-  const n = new Notification(title, { body, tag, icon: './img/favicon.png' });
+  const n = new Notification(title, { body, tag, icon: `${ASSET_BASE}img/favicon.png` });
   n.onclick = () => { window.focus(); n.close(); };
   // Simpan ke riwayat (async, fire-and-forget)
   addToHistory(title, body, tag).catch(() => {});

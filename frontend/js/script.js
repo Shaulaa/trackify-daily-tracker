@@ -27,9 +27,11 @@ import {
 
 // Pantau perubahan auth state
 let _lastLoadedUid = null;
+const ASSET_BASE =
+  document.querySelector('meta[name="trackify-asset-base"]')?.getAttribute('content') || './frontend/';
 const THEME_LOGO = {
-  light: './img/logo-trackify_lightmode.png',
-  dark: './img/logo_trackify_darkmodet.png'
+  light: `${ASSET_BASE}img/logo-trackify_lightmode.png`,
+  dark: `${ASSET_BASE}img/logo_trackify_darkmodet.png`
 };
 
 function getThemeLogoSrc(theme = 'dark') {
