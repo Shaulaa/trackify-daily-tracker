@@ -1,0 +1,37 @@
+<!-- ============================================================ -->
+<!-- INTEGRASI PWA KE index.html                                  -->
+<!-- Tambahkan 2 baris berikut di dalam <head>                    -->
+<!-- ============================================================ -->
+
+<!-- 1. Link ke manifest.json -->
+<link rel="manifest" href="/manifest.json">
+
+<!-- 2. Theme color untuk browser chrome (address bar Android) -->
+<meta name="theme-color" content="#0f1117">
+
+<!-- 3. Opsional tapi direkomendasikan — untuk iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trackify">
+
+
+
+<!-- ============================================================ -->
+<!-- INTEGRASI PWA KE script.js                                   -->
+<!-- ============================================================ -->
+
+<!-- Tambah import di bagian atas script.js: -->
+import { initPWA, triggerInstallPrompt, canInstall } from './pwa.js';
+
+<!-- Panggil initPWA() di awal, sebelum atau sesudah DOMContentLoaded: -->
+initPWA();
+
+<!-- Opsional: kalau kamu punya tombol "Install App" di settings,
+     hubungkan ke triggerInstallPrompt():                          -->
+window.installPWA = function() {
+  const success = triggerInstallPrompt();
+  if (!success) {
+    // Sudah terinstall atau browser tidak support
+    alert('Trackify sudah terinstall atau browser kamu tidak mendukung fitur ini.');
+  }
+};
