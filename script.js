@@ -2939,12 +2939,14 @@ function _saveEditLearning(i) {
 // ── FEEDBACK ──────────────────────────────────────────────
 let _feedbackType = 'saran';
 
+window.selectFeedbackType = selectFeedbackType;
 function selectFeedbackType(btn) {
   document.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _feedbackType = btn.getAttribute('data-type');
 }
 
+window.submitFeedback = submitFeedback;
 function submitFeedback() {
   const msg  = (document.getElementById('feedback-msg')  || {}).value?.trim() || '';
   const name = (document.getElementById('feedback-name') || {}).value?.trim() || '';
