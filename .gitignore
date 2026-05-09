@@ -7,9 +7,6 @@
 *service-account*.json
 *firebase-adminsdk*.json
 
-# ── Firebase ──────────────────────────────────────────────────
-firebase.js
-
 # ── Dependencies ──────────────────────────────────────────────
 node_modules/
 .npm
