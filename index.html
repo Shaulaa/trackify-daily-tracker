@@ -1916,6 +1916,29 @@
       <div class="feedback-form">
         <div>
           <label class="feedback-label">Jenis Masukan</label>
+          <style>
+            .feedback-type-btn {
+              border: 1.5px solid var(--border, #2a2d3a);
+              background: transparent;
+              color: var(--text3, #6b7280);
+              border-radius: 8px;
+              padding: 6px 14px;
+              font-size: 13px;
+              cursor: pointer;
+              transition: border-color 0.15s, color 0.15s, background 0.15s;
+            }
+            .feedback-type-btn:hover {
+              border-color: var(--accent, #6c63ff);
+              color: var(--accent, #6c63ff);
+              background: rgba(108,99,255,0.07);
+            }
+            .feedback-type-btn.active {
+              border-color: var(--accent, #6c63ff);
+              background: rgba(108,99,255,0.15);
+              color: var(--accent, #6c63ff);
+              font-weight: 600;
+            }
+          </style>
           <div class="feedback-type-group" id="feedback-type-group">
             <button class="btn feedback-type-btn active" data-type="saran" onclick="selectFeedbackType(this)">Saran</button>
             <button class="btn feedback-type-btn" data-type="bug" onclick="selectFeedbackType(this)">Laporan Bug</button>
