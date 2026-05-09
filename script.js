@@ -2939,7 +2939,6 @@ function _saveEditLearning(i) {
 // ── FEEDBACK ──────────────────────────────────────────────
 let _feedbackType = 'saran';
 
-window.selectFeedbackType = selectFeedbackType;
 function selectFeedbackType(btn) {
   document.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -4063,3 +4062,7 @@ document.addEventListener('change', function(e) {
   const handler = e.target.getAttribute('data-onchange');
   if (handler && e.target.id !== 'import-file-input' && window[handler]) window[handler]();
 });
+
+// ── Expose feedback functions ke global scope ──────────────
+window.selectFeedbackType = selectFeedbackType;
+window.submitFeedback     = submitFeedback;
