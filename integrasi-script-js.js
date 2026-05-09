@@ -31,7 +31,6 @@ onAuthChange(async (user) => {
     setCurrentUser(user.uid);
     await initNotifications();
 
-    // ✅ TAMBAHKAN INI:
     await initFCM(user.uid);
 
     // ... sisa kode yang sudah ada ...
@@ -50,7 +49,6 @@ onAuthChange(async (user) => {
 //    Ubah jadi:
 
 window.handleLogout = async function() {
-  // ✅ TAMBAHKAN INI (sebelum logoutUser):
   const currentUser = getCurrentUser();
   if (currentUser) {
     await removeFCMToken(currentUser.uid);

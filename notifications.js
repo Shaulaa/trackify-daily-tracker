@@ -321,8 +321,24 @@ export function getPermissionStatus() {
 // ── Send ───────────────────────────────────────────────────────
 function send(title, body, tag) {
   if (Notification.permission !== 'granted') return false;
-  const n = new Notification(title, { body, tag, icon: `${ASSET_BASE}img/favicon.png` });
-  n.onclick = () => { window.focus(); n.close(); };
+
+  const icon = `${ASSET_BASE}img/favicon.png`;
+
+  // Mobile Chrome tidak support new Notification() — wajib pakai SW
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, { body, tag, icon, renotify: true });
+    }).catch(() => {});
+  } else {
+    // Desktop fallback
+    try {
+      const n = new Notification(title, { body, tag, icon });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch {
+      return false;
+    }
+  }
+
   // Simpan ke riwayat (async, fire-and-forget)
   addToHistory(title, body, tag).catch(() => {});
   return true;
