@@ -2,6 +2,9 @@
   "name": "trackify-daily-tracker",
   "private": true,
   "type": "module",
+  "scripts": {
+    "dev": "node server.mjs"
+  },
   "engines": {
     "node": ">=18"
   }
