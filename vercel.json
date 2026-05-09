@@ -3,6 +3,10 @@
     "api/send-notifications.js": {
       "memory": 256,
       "maxDuration": 30
+    },
+    "api/send-feedback.js": {
+      "memory": 128,
+      "maxDuration": 10
     }
   }
 }

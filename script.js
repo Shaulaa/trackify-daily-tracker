@@ -21,11 +21,6 @@ import {
   renderNotifSettings, clearNotifHistoryUI
 } from './notifications.js';
 
-import { initPWA } from './pwa.js';
-import { initFCM, removeFCMToken } from './fcm.js';
-
-initPWA();
-
 // ============================================================
 // AUTH HANDLER
 // ============================================================
@@ -206,7 +201,6 @@ async function loadAllData() {
     renderAll();
     updateDashboard();
     await initNotifications();
-    await initFCM(getCurrentUser()?.uid);
     showToast('✓ Data berhasil dimuat dari cloud');
     // Tampilkan onboarding untuk user baru (cek semua data kosong)
     const isNewUser = !state.habits.length && !state.todos.length && !state.journals.length && !state.targets.length;
@@ -2967,26 +2961,21 @@ function submitFeedback() {
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Mengirim...'; }
   if (statusEl) { statusEl.style.display = 'none'; }
 
-  // Kirim via FormSubmit — ganti YOUR_EMAIL_HERE dengan email kamu
-  const TARGET_EMAIL = 'feedback@trackify.app'; // ← GANTI dengan email kamu
-  const formData = new FormData();
-  formData.append('_subject', `[Trackify Feedback] ${label} dari ${name || 'anonim'}`);
-  formData.append('_template', 'table');
-  formData.append('_captcha', 'false');
-  formData.append('Jenis', label);
-  formData.append('Nama', name || '(anonim)');
-  formData.append('Email Pengirim', email || '(tidak diisi)');
-  formData.append('Pesan', msg);
-  formData.append('Timestamp', new Date().toLocaleString('id-ID'));
-
-  fetch(`https://formsubmit.co/ajax/${TARGET_EMAIL}`, {
+  // Kirim via Vercel API → Telegram Bot
+  fetch('/api/send-feedback', {
     method: 'POST',
-    body: formData,
-    headers: { 'Accept': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type:      label,
+      name:      name  || '(anonim)',
+      email:     email || '(tidak diisi)',
+      message:   msg,
+      timestamp: new Date().toLocaleString('id-ID'),
+    })
   })
   .then(res => res.json())
   .then(data => {
-    if (data.success === 'true' || data.success === true) {
+    if (data.ok) {
       if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.background = 'rgba(34,197,94,0.12)';
@@ -2999,22 +2988,19 @@ function submitFeedback() {
       document.getElementById('feedback-name').value = '';
       if (document.getElementById('feedback-email')) document.getElementById('feedback-email').value = '';
     } else {
-      throw new Error('Send failed');
+      throw new Error(data.error || 'Send failed');
     }
   })
-  .catch(() => {
-    // Fallback: buka mailto jika fetch gagal
-    const subject = encodeURIComponent(`[Trackify Feedback] ${label}`);
-    const body    = encodeURIComponent(`Jenis: ${label}\nDari: ${name || '(anonim)'}\nEmail: ${email || '-'}\n\n${msg}\n\n---\nDikirim dari Trackify v2.4.0`);
-    window.open(`mailto:${TARGET_EMAIL}?subject=${subject}&body=${body}`);
+  .catch((err) => {
+    console.error('[Feedback] Error:', err);
     if (statusEl) {
       statusEl.style.display = 'block';
-      statusEl.style.background = 'rgba(245,158,11,0.12)';
-      statusEl.style.color = '#f59e0b';
-      statusEl.style.border = '1px solid rgba(245,158,11,0.3)';
-      statusEl.textContent = '⚠ Membuka klien email sebagai alternatif...';
+      statusEl.style.background = 'rgba(239,68,68,0.12)';
+      statusEl.style.color = '#ef4444';
+      statusEl.style.border = '1px solid rgba(239,68,68,0.3)';
+      statusEl.textContent = '⚠ Gagal mengirim feedback. Coba lagi ya!';
     }
-    showToast('⚠ Membuka email client...');
+    showToast('⚠ Gagal mengirim feedback');
   })
   .finally(() => {
     if (btnEl) {
@@ -3230,7 +3216,6 @@ Object.assign(window, {
     }
   },
   handleLogout: async () => {
-    await removeFCMToken(getCurrentUser()?.uid);
     await logoutUser();
     showToast("✓ Berhasil logout");
     clearAllDisplays();
