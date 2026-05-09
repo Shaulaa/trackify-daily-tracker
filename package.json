@@ -1,9 +1,10 @@
 {
-  "name": "trackify-daily-tracker",
+  "name": "trackify",
+  "version": "2.1.0",
   "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "node server.mjs"
+  "description": "Trackify — Personal Productivity Dashboard",
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
   },
   "engines": {
     "node": ">=18"

@@ -21,6 +21,11 @@ import {
   renderNotifSettings, clearNotifHistoryUI
 } from './notifications.js';
 
+import { initPWA } from './pwa.js';
+import { initFCM, removeFCMToken } from './fcm.js';
+
+initPWA();
+
 // ============================================================
 // AUTH HANDLER
 // ============================================================
@@ -201,6 +206,7 @@ async function loadAllData() {
     renderAll();
     updateDashboard();
     await initNotifications();
+    await initFCM(getCurrentUser()?.uid);
     showToast('✓ Data berhasil dimuat dari cloud');
     // Tampilkan onboarding untuk user baru (cek semua data kosong)
     const isNewUser = !state.habits.length && !state.todos.length && !state.journals.length && !state.targets.length;
@@ -3224,6 +3230,7 @@ Object.assign(window, {
     }
   },
   handleLogout: async () => {
+    await removeFCMToken(getCurrentUser()?.uid);
     await logoutUser();
     showToast("✓ Berhasil logout");
     clearAllDisplays();

@@ -23,3 +23,8 @@ Thumbs.db
 # ── Logs ──────────────────────────────────────────────────────
 *.log
 npm-debug.log*
+
+# Firebase service account — JANGAN di-commit
+serviceAccountKey.json
+*serviceAccount*.json
+*.json.key
