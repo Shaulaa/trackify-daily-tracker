@@ -1,18 +1,8 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron-notifications",
-      "schedule": "* * * * *"
-    }
-  ],
   "functions": {
     "api/send-notifications.js": {
       "memory": 256,
       "maxDuration": 30
-    },
-    "api/cron-notifications.js": {
-      "memory": 128,
-      "maxDuration": 10
     }
   }
 }
