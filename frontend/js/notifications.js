@@ -24,7 +24,6 @@
 
 'use strict';
 
-import { requestFCMPermission, initForegroundNotifications } from './fcm.js';
 import {
   getFirestore, doc, getDoc, setDoc, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -319,7 +318,7 @@ export function getPermissionStatus() {
 // ── Send ───────────────────────────────────────────────────────
 function send(title, body, tag) {
   if (Notification.permission !== 'granted') return false;
-  const n = new Notification(title, { body, tag, icon: '/favicon.ico' });
+  const n = new Notification(title, { body, tag, icon: './img/favicon.png' });
   n.onclick = () => { window.focus(); n.close(); };
   // Simpan ke riwayat (async, fire-and-forget)
   addToHistory(title, body, tag).catch(() => {});
@@ -426,7 +425,6 @@ export async function initNotifications() {
   _prefs = await loadPrefs();
   if (_prefs.enabled && getPermissionStatus() === 'granted') {
     startScheduler();
-    initForegroundNotifications();
   }
 }
 
@@ -439,16 +437,6 @@ export async function enableNotifications() {
   _prefs.enabled = true;
   await savePrefs();
   startScheduler();
-  try {
-    const token = await requestFCMPermission();
-    if (token) {
-      // Token sudah disimpan ke Firestore di dalam requestFCMPermission()
-      console.log('[Trackify] FCM token tersimpan:', token.slice(0, 20) + '...');
-    }
-    initForegroundNotifications();
-  } catch (e) {
-    console.warn('[Trackify] FCM setup gagal, fallback ke Browser API:', e);
-  }
   return 'granted';
 }
 

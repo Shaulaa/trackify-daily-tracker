@@ -27,6 +27,51 @@ import {
 
 // Pantau perubahan auth state
 let _lastLoadedUid = null;
+const THEME_LOGO = {
+  light: './img/logo-trackify_lightmode.png',
+  dark: './img/logo_trackify_darkmodet.png'
+};
+
+function getThemeLogoSrc(theme = 'dark') {
+  return theme === 'light' ? THEME_LOGO.light : THEME_LOGO.dark;
+}
+
+function getThemeLogoMarkup(size) {
+  const src = getThemeLogoSrc(state?.theme || document.documentElement.dataset.theme || 'dark');
+  return `<img class="theme-logo-image" src="${src}" data-light-src="${THEME_LOGO.light}" data-dark-src="${THEME_LOGO.dark}" width="${size}" height="${size}" alt="Trackify logo" style="display:block;object-fit:contain;">`;
+}
+
+function setAuthPopupState(menuId, buttonId, isOpen) {
+  const menu = document.getElementById(menuId);
+  const button = document.getElementById(buttonId);
+  if (menu) menu.style.display = isOpen ? 'block' : 'none';
+  if (button) button.setAttribute('aria-expanded', String(isOpen));
+}
+
+window.toggleAuthMenu = function toggleAuthMenu() {
+  const menu = document.getElementById('auth-menu');
+  const isOpen = menu?.style.display === 'none' || !menu?.style.display;
+  setAuthPopupState('auth-menu', 'auth-avatar-btn', isOpen);
+};
+
+window.toggleAuthDropdown = function toggleAuthDropdown() {
+  const dropdown = document.getElementById('auth-dropdown');
+  const isOpen = dropdown?.style.display === 'none' || !dropdown?.style.display;
+  setAuthPopupState('auth-dropdown', 'auth-trigger-btn', isOpen);
+};
+
+document.addEventListener('click', (event) => {
+  const mobileAuth = document.getElementById('auth-logged-in');
+  if (mobileAuth && !mobileAuth.contains(event.target)) {
+    setAuthPopupState('auth-menu', 'auth-avatar-btn', false);
+  }
+
+  const desktopAuth = document.getElementById('auth-widget-desktop');
+  if (desktopAuth && !desktopAuth.contains(event.target)) {
+    setAuthPopupState('auth-dropdown', 'auth-trigger-btn', false);
+  }
+});
+
 onAuthChange((user) => {
   if (user) {
     // Mobile topbar
@@ -83,7 +128,7 @@ onAuthChange((user) => {
     if (dropOut) dropOut.style.display = "block";
     if (dropIn)  dropIn.style.display = "none";
     const triggerIcon = document.getElementById("auth-trigger-icon");
-    if (triggerIcon) { triggerIcon.innerHTML = '<svg width="16" height="16" style="color:var(--accent)"><use href="#logo-trackify"/></svg>'; triggerIcon.style.background = 'var(--accent-glow)'; }
+    if (triggerIcon) { triggerIcon.innerHTML = getThemeLogoMarkup(28); triggerIcon.style.background = 'transparent'; }
     const triggerLabel = document.getElementById("auth-trigger-label");
     if (triggerLabel) triggerLabel.textContent = 'Akun';
   }
@@ -119,7 +164,7 @@ async function loadAllData() {
     state.emosis       = emosis.map(e => ({ date: e.date, mood: e.mood || '', cause: e.cause || '', solution: e.solution || '' }));
     state.menstruasis  = menstruasis.map(m => ({ start: m.startDate || m.start, end: m.endDate || m.end, flow: m.intensity || m.flow || 'sedang', symptoms: m.symptoms || [], mood: m.mood || '', note: m.notes || m.note || '' }));
     state.learnings    = learnings.map(l => ({ date: l.date, subject: l.topic || l.subject || '', what: l.content || l.what || '', insight: l.insight || '', duration: l.duration || '', cat: l.category || l.cat || '' }));
-    state.targets      = targets.map(t => ({ _id: t.id, name: t.name || '', deadline: t.deadline || '', status: t.status || 'on_progress' }));
+    state.targets      = targets.map(t => ({ _id: t.id, name: t.name || '', deadline: t.deadline || '', status: t.status || 'on_progress', note: t.note || '' }));
     state.todos        = todos.map((t, i) => ({ id: t.id || i + 1, text: t.text || '', done: !!t.done, createdAt: t.createdAt, dueDate: t.date || '', dueTime: t.time || '', priority: t.priority || 'medium', category: t.category || '' }));
     // Restore _nextId agar todo baru tidak dapat ID yang bentrok dengan yang sudah ada
     state._nextId = state.todos.reduce((max, t) => Math.max(max, Number(t.id) || 0), 0) + 1;
@@ -148,22 +193,30 @@ async function loadAllData() {
     state.streak      = streakData.currentStreak || 0;
     state.lastCheckin = streakData.lastCheckIn || '';
     state.checkins    = (streakData.checkIns || []).map(date => ({ date, streak: streakData.currentStreak }));
+    saveState();
+    markCloudStateAsSynced();
 
     renderAll();
     updateDashboard();
     await initNotifications();
     showToast('✓ Data berhasil dimuat dari cloud');
+    // Tampilkan onboarding untuk user baru (cek semua data kosong)
+    const isNewUser = !state.habits.length && !state.todos.length && !state.journals.length && !state.targets.length;
+    if (isNewUser) showOnboarding();
   } catch (e) {
     console.error('[Trackify] loadAllData error:', e);
     showToast('⚠ Gagal memuat data: ' + e.message);
   } finally {
     setLoadingOverlay(false);
+    finishInitialLoad();
   }
 }
 
 function clearAllDisplays() {
-  state = createDefaultState();
-  habitRows = [today()];
+  resetSyncQueue();
+  const cachedState = StorageManager.load();
+  state = cachedState ? normalizeState(cachedState) : createDefaultState();
+  habitRows = state.habitRows?.length ? [...state.habitRows] : [today()];
   selectedCat = '';
   renderAll();
   updateDashboard();
@@ -201,6 +254,149 @@ const StorageManager = {
     catch (err) { console.warn('[Trackify] Gagal menghapus data:', err); }
   }
 };
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeDateList(value, fallback = []) {
+  if (!Array.isArray(value)) return [...fallback];
+  return Array.from(new Set(
+    value
+      .map(item => typeof item === 'string' ? item.trim() : '')
+      .filter(Boolean)
+  )).sort();
+}
+
+function normalizeState(raw) {
+  const base = createDefaultState();
+  if (!isPlainObject(raw)) return base;
+
+  base.theme = raw.theme === 'light' ? 'light' : 'dark';
+
+  base.targets = Array.isArray(raw.targets) ? raw.targets
+    .filter(isPlainObject)
+    .map(item => ({
+      _id: typeof item._id === 'string' ? item._id : undefined,
+      name: typeof item.name === 'string' ? item.name.trim() : '',
+      deadline: typeof item.deadline === 'string' ? item.deadline : '',
+      status: item.status === 'done' ? 'done' : 'on_progress',
+      note: typeof item.note === 'string' ? item.note : ''
+    }))
+    .filter(item => item.name) : [];
+
+  base.habits = Array.isArray(raw.habits)
+    ? raw.habits.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean)
+    : [];
+
+  base.habitData = isPlainObject(raw.habitData)
+    ? Object.fromEntries(
+        Object.entries(raw.habitData)
+          .filter(([key, value]) =>
+            typeof key === 'string' &&
+            (value === 'done' || value === 'skip' || value === 'none')
+          )
+      )
+    : {};
+
+  base.habitRows = normalizeDateList(raw.habitRows, [today()]);
+
+  base.todos = Array.isArray(raw.todos) ? raw.todos
+    .filter(isPlainObject)
+    .map((item, index) => ({
+      id: Number.isFinite(Number(item.id)) ? Number(item.id) : index + 1,
+      text: typeof item.text === 'string' ? item.text.trim() : '',
+      done: !!item.done,
+      createdAt: item.createdAt ?? '',
+      dueDate: typeof item.dueDate === 'string' ? item.dueDate : (typeof item.date === 'string' ? item.date : ''),
+      dueTime: typeof item.dueTime === 'string' ? item.dueTime : (typeof item.time === 'string' ? item.time : ''),
+      priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : 'medium',
+      category: typeof item.category === 'string' ? item.category : ''
+    }))
+    .filter(item => item.text) : [];
+
+  base.journals = Array.isArray(raw.journals) ? raw.journals
+    .filter(isPlainObject)
+    .map(item => ({
+      date: typeof item.date === 'string' ? item.date : today(),
+      did: typeof item.did === 'string' ? item.did : '',
+      good: typeof item.good === 'string' ? item.good : '',
+      improve: typeof item.improve === 'string' ? item.improve : '',
+      mood: typeof item.mood === 'string' ? item.mood : ''
+    }))
+    .filter(item => item.did) : [];
+
+  base.reflections = Array.isArray(raw.reflections) ? raw.reflections
+    .filter(isPlainObject)
+    .map(item => ({
+      date: typeof item.date === 'string' ? item.date : today(),
+      grow: typeof item.grow === 'string' ? item.grow : '',
+      lack: typeof item.lack === 'string' ? item.lack : '',
+      plan: typeof item.plan === 'string' ? item.plan : ''
+    }))
+    .filter(item => item.grow) : [];
+
+  base.sosials = Array.isArray(raw.sosials) ? raw.sosials
+    .filter(isPlainObject)
+    .map(item => ({
+      date: typeof item.date === 'string' ? item.date : today(),
+      who: typeof item.who === 'string' ? item.who : '',
+      topic: typeof item.topic === 'string' ? item.topic : '',
+      improve: typeof item.improve === 'string' ? item.improve : '',
+      note: typeof item.note === 'string' ? item.note : ''
+    }))
+    .filter(item => item.who) : [];
+
+  base.emosis = Array.isArray(raw.emosis) ? raw.emosis
+    .filter(isPlainObject)
+    .map(item => ({
+      date: typeof item.date === 'string' ? item.date : today(),
+      mood: typeof item.mood === 'string' ? item.mood : '',
+      cause: typeof item.cause === 'string' ? item.cause : '',
+      solution: typeof item.solution === 'string' ? item.solution : ''
+    }))
+    .filter(item => item.mood || item.cause || item.solution) : [];
+
+  base.menstruasis = Array.isArray(raw.menstruasis) ? raw.menstruasis
+    .filter(isPlainObject)
+    .map(item => ({
+      start: typeof item.start === 'string' ? item.start : '',
+      end: typeof item.end === 'string' ? item.end : '',
+      flow: typeof item.flow === 'string' ? item.flow : 'sedang',
+      symptoms: Array.isArray(item.symptoms) ? item.symptoms.filter(symptom => typeof symptom === 'string' && symptom.trim()) : [],
+      mood: typeof item.mood === 'string' ? item.mood : '',
+      note: typeof item.note === 'string' ? item.note : ''
+    }))
+    .filter(item => item.start) : [];
+
+  base.learnings = Array.isArray(raw.learnings) ? raw.learnings
+    .filter(isPlainObject)
+    .map(item => ({
+      date: typeof item.date === 'string' ? item.date : today(),
+      subject: typeof item.subject === 'string' ? item.subject : '',
+      what: typeof item.what === 'string' ? item.what : '',
+      insight: typeof item.insight === 'string' ? item.insight : '',
+      duration: item.duration == null ? '' : String(item.duration),
+      cat: typeof item.cat === 'string' ? item.cat : ''
+    }))
+    .filter(item => item.subject || item.what) : [];
+
+  base.streak = Number.isFinite(Number(raw.streak)) ? Math.max(0, Number(raw.streak)) : 0;
+  base.lastCheckin = typeof raw.lastCheckin === 'string' ? raw.lastCheckin : '';
+  base.checkins = Array.isArray(raw.checkins) ? raw.checkins
+    .map(item => {
+      if (typeof item === 'string') return { date: item, streak: base.streak };
+      if (!isPlainObject(item) || typeof item.date !== 'string') return null;
+      return {
+        date: item.date,
+        streak: Number.isFinite(Number(item.streak)) ? Number(item.streak) : base.streak
+      };
+    })
+    .filter(Boolean) : [];
+
+  base._nextId = base.todos.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1;
+  return base;
+}
 
 /* ============================================================
    2. STATE — nilai default (dipakai saat localStorage kosong)
@@ -254,6 +450,28 @@ function createDefaultState() {
 let state     = createDefaultState();
 let habitRows = [];
 let selectedCat = '';
+let _initialLoadFinished = false;
+let _initialLoadCleanupTimer = null;
+const _initialLoadStartedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+function finishInitialLoad() {
+  if (_initialLoadFinished) return;
+  _initialLoadFinished = true;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const remaining = Math.max(0, 420 - (now - _initialLoadStartedAt));
+
+  setTimeout(() => {
+    document.body.classList.add('app-revealing');
+    requestAnimationFrame(() => {
+      document.body.classList.remove('app-booting');
+    });
+
+    if (_initialLoadCleanupTimer) clearTimeout(_initialLoadCleanupTimer);
+    _initialLoadCleanupTimer = setTimeout(() => {
+      document.body.classList.remove('app-revealing');
+    }, 420);
+  }, remaining);
+}
 
 /** Sinkronkan habitRows ke state lalu simpan ke localStorage. */
 function saveState() {
@@ -266,55 +484,137 @@ function saveState() {
 // FIREBASE SYNC — fire-and-forget, tidak blokir UI
 // ============================================================
 
+const FIREBASE_SYNC_DEBOUNCE_MS = 450;
+let _syncTimerId = null;
+let _syncInFlight = false;
+let _syncQueued = false;
+let _syncLastHash = '';
+let _syncLastUid = '';
+
+function buildSyncPayload() {
+  return {
+    journals: state.journals.map(j => ({
+      date: j.date, activity: j.did, positive: j.good,
+      improve: j.improve, mood: j.mood
+    })),
+    reflections: state.reflections.map(r => ({
+      date: r.date, growth: r.grow, lacking: r.lack, plan: r.plan
+    })),
+    communications: state.sosials.map(s => ({
+      date: s.date, person: s.who, topic: s.topic,
+      improvement: s.improve, notes: s.note
+    })),
+    emotions: state.emosis.map(e => ({
+      date: e.date, mood: e.mood, cause: e.cause, solution: e.solution
+    })),
+    menstrual: state.menstruasis.map(m => ({
+      startDate: m.start, endDate: m.end, intensity: m.flow,
+      symptoms: m.symptoms, mood: m.mood, notes: m.note
+    })),
+    learnings: state.learnings.map(l => ({
+      date: l.date, topic: l.subject, content: l.what,
+      insight: l.insight, duration: l.duration, category: l.cat
+    })),
+    targets: state.targets.map(t => ({
+      name: t.name, deadline: t.deadline, status: t.status, note: t.note || ''
+    })),
+    todos: state.todos.map(t => ({
+      text: t.text, done: t.done, date: t.dueDate, time: t.dueTime,
+      priority: t.priority || 'medium', category: t.category || ''
+    })),
+    habits: state.habits.map((name, hi) => {
+      const dates = Object.entries(state.habitData)
+        .filter(([k, v]) => k.endsWith(`_${hi}`) && v === 'done')
+        .map(([k]) => k.split('_')[0]);
+      return { name, dates };
+    }),
+    streak: {
+      currentStreak: state.streak,
+      lastCheckIn: state.lastCheckin,
+      checkIns: state.checkins.map(c => c.date),
+      habitRows: [...habitRows]
+    }
+  };
+}
+
+function getSyncHash(payload) {
+  return JSON.stringify(payload);
+}
+
+function markCloudStateAsSynced() {
+  const user = getCurrentUser();
+  if (!user) {
+    _syncLastUid = '';
+    _syncLastHash = '';
+    return;
+  }
+  _syncLastUid = user.uid;
+  _syncLastHash = getSyncHash(buildSyncPayload());
+}
+
+function resetSyncQueue() {
+  if (_syncTimerId) clearTimeout(_syncTimerId);
+  _syncTimerId = null;
+  _syncInFlight = false;
+  _syncQueued = false;
+  _syncLastUid = '';
+  _syncLastHash = '';
+}
+
+function requestFirebaseSync({ immediate = false } = {}) {
+  if (!getCurrentUser()) return;
+  _syncQueued = true;
+  if (_syncTimerId) clearTimeout(_syncTimerId);
+  const delay = immediate ? 0 : FIREBASE_SYNC_DEBOUNCE_MS;
+  _syncTimerId = setTimeout(() => {
+    _syncTimerId = null;
+    syncToFirebase();
+  }, delay);
+}
+
 /**
  * Sync penuh semua koleksi ke Firestore.
- * Dipanggil setiap kali ada mutasi data.
- * Strategi: deleteAllItems lalu addItem ulang (simple, stateless).
+ * Dipanggil melalui queue agar perubahan cepat tidak saling menimpa.
  */
 async function syncToFirebase() {
-  if (!getCurrentUser()) return;
+  const user = getCurrentUser();
+  if (!user) {
+    resetSyncQueue();
+    return;
+  }
+  if (_syncInFlight) return;
+
+  const payload = buildSyncPayload();
+  const payloadHash = getSyncHash(payload);
+  if (!_syncQueued && _syncLastUid === user.uid && _syncLastHash === payloadHash) return;
+
+  _syncInFlight = true;
+  _syncQueued = false;
   try {
-    // Sync tiap koleksi secara paralel
+    const syncUid = user.uid;
     await Promise.all([
-      syncCollection('journals', state.journals.map(j => ({
-        date: j.date, activity: j.did, positive: j.good,
-        improve: j.improve, mood: j.mood
-      }))),
-      syncCollection('reflections', state.reflections.map(r => ({
-        date: r.date, growth: r.grow, lacking: r.lack, plan: r.plan
-      }))),
-      syncCollection('communications', state.sosials.map(s => ({
-        date: s.date, person: s.who, topic: s.topic,
-        improvement: s.improve, notes: s.note
-      }))),
-      syncCollection('emotions', state.emosis.map(e => ({
-        date: e.date, mood: e.mood, cause: e.cause, solution: e.solution
-      }))),
-      syncCollection('menstrual', state.menstruasis.map(m => ({
-        startDate: m.start, endDate: m.end, intensity: m.flow,
-        symptoms: m.symptoms, mood: m.mood, notes: m.note
-      }))),
-      syncCollection('learnings', state.learnings.map(l => ({
-        date: l.date, topic: l.subject, content: l.what,
-        insight: l.insight, duration: l.duration, category: l.cat
-      }))),
-      syncCollection('targets', state.targets.map(t => ({
-        name: t.name, deadline: t.deadline, status: t.status
-      }))),
-      syncCollection('todos', state.todos.map(t => ({
-        text: t.text, done: t.done, date: t.dueDate, time: t.dueTime,
-        priority: t.priority || 'medium', category: t.category || ''
-      }))),
-      syncHabits(),
-      updateStreak({
-        currentStreak: state.streak,
-        lastCheckIn: state.lastCheckin,
-        checkIns: state.checkins.map(c => c.date),
-        habitRows: habitRows
-      })
+      syncCollection('journals', payload.journals),
+      syncCollection('reflections', payload.reflections),
+      syncCollection('communications', payload.communications),
+      syncCollection('emotions', payload.emotions),
+      syncCollection('menstrual', payload.menstrual),
+      syncCollection('learnings', payload.learnings),
+      syncCollection('targets', payload.targets),
+      syncCollection('todos', payload.todos),
+      syncHabits(payload.habits),
+      updateStreak(payload.streak)
     ]);
+    if (getCurrentUser()?.uid === syncUid) {
+      _syncLastUid = syncUid;
+      _syncLastHash = payloadHash;
+    }
   } catch (e) {
     console.warn('[Trackify] syncToFirebase error:', e.message);
+    _syncQueued = true;
+  }
+  finally {
+    _syncInFlight = false;
+    if (_syncQueued) requestFirebaseSync({ immediate: true });
   }
 }
 
@@ -325,20 +625,15 @@ async function syncCollection(colName, items) {
   await replaceCollection(colName, itemsWithId);
 }
 
-async function syncHabits() {
-  const itemsWithId = state.habits.map((name, hi) => {
-    const dates = Object.entries(state.habitData)
-      .filter(([k, v]) => k.endsWith(`_${hi}`) && v === 'done')
-      .map(([k]) => k.split('_')[0]);
-    return { _docId: String(hi), name, dates };
-  });
+async function syncHabits(items) {
+  const itemsWithId = items.map((item, hi) => ({ _docId: String(hi), ...item }));
   await replaceCollection('habits', itemsWithId);
 }
 
 /** saveState + sync ke Firebase */
 function saveAndSync() {
   saveState();
-  syncToFirebase(); // intentionally not awaited
+  requestFirebaseSync();
 }
 
 /* ============================================================
@@ -346,8 +641,10 @@ function saveAndSync() {
    ============================================================ */
 
 function initApp() {
-  // Selalu mulai dari state kosong — data diambil dari Firebase saat login
-  state = createDefaultState();
+  // Mulai dari local cache agar mode tanpa login tetap berjalan.
+  // Jika user sedang login, state ini nanti akan dioverride oleh Firebase.
+  const savedState = StorageManager.load();
+  state = savedState ? normalizeState(savedState) : createDefaultState();
 
   // Pulihkan tema dari localStorage agar tidak flicker saat refresh
   try {
@@ -355,13 +652,14 @@ function initApp() {
     if (savedTheme === 'light' || savedTheme === 'dark') state.theme = savedTheme;
   } catch(e) {}
 
-  habitRows   = [today()];
+  habitRows   = state.habitRows?.length ? [...state.habitRows] : [today()];
   selectedCat = '';
 
   applyTheme(state.theme);
   setDefaultFormDates();
   renderAll();
   renderDashboardDate();
+  finishInitialLoad();
   // initNotifications dipanggil di loadAllData() setelah user login
 }
 
@@ -439,33 +737,12 @@ function updateDashboardHeroArtwork(theme) {
 }
 
 function updateThemeLogos(theme) {
-  const darkLogoSymbol = document.querySelector('#logo-trackify');
-  const darkLogoImage = darkLogoSymbol?.querySelector('image');
-
-  document.querySelectorAll('.logo-icon, .sidebar-footer .avatar').forEach(logoWrap => {
-    if (!logoWrap.dataset.lightMarkup) {
-      logoWrap.dataset.lightMarkup = logoWrap.innerHTML;
-    }
-
-    if (theme === 'dark') {
-      if (logoWrap.dataset.themeLogoApplied === 'dark') return;
-      const size = logoWrap.closest('.topbar-logo')
-        ? 32
-        : logoWrap.matches('.avatar')
-          ? 42
-          : 54;
-      if (darkLogoImage) {
-        logoWrap.innerHTML = `<svg class="theme-logo-svg" viewBox="0 0 1024 1024" width="${size}" height="${size}" aria-label="Trackify logo" role="img">${darkLogoImage.outerHTML}</svg>`;
-      } else {
-        logoWrap.innerHTML = `<svg class="theme-logo-svg" viewBox="0 0 1024 1024" width="${size}" height="${size}" aria-label="Trackify logo" role="img"><use href="#logo-trackify"></use></svg>`;
-      }
-      logoWrap.dataset.themeLogoApplied = 'dark';
-      return;
-    }
-
-    if (logoWrap.dataset.lightMarkup) {
-      logoWrap.innerHTML = logoWrap.dataset.lightMarkup;
-      logoWrap.dataset.themeLogoApplied = 'light';
+  document.querySelectorAll('.theme-logo-image').forEach((logoImg) => {
+    const nextSrc = theme === 'light'
+      ? (logoImg.dataset.lightSrc || THEME_LOGO.light)
+      : (logoImg.dataset.darkSrc || THEME_LOGO.dark);
+    if (logoImg.getAttribute('src') !== nextSrc) {
+      logoImg.setAttribute('src', nextSrc);
     }
   });
 }
@@ -484,7 +761,7 @@ function toggleTheme() {
 
 const VALID_PAGES = new Set([
   'dashboard','target','habit','todo','reward','learning',
-  'journal','reflection','sosial','emosi','menstruasi','settings','privacy'
+  'journal','reflection','sosial','emosi','menstruasi','settings','privacy','feedback'
 ]);
 
 // ── History API: back button mobile tidak keluar dari app ──
@@ -544,6 +821,7 @@ function showPage(id, btn, _fromHistory = false) {
   if (!_fromHistory) history.pushState({ page: id }, '', location.href);
 
   closeSidebar();
+  window.scrollTo({ top: 0, behavior: 'instant' });
   const title = pageEl.querySelector('.page-title');
   if (title) { title.setAttribute('tabindex', '-1'); title.focus(); }
 }
@@ -676,15 +954,151 @@ function emptyHTML(iconKey, msg) {
     '😶': '<svg width="28" height="28"><use href="#icon-emosi"/></svg>',
     '🌸': '<svg width="28" height="28"><use href="#icon-siklus"/></svg>',
   };
+  const EMPTY_DETAILS = {
+    '🎯': 'Mulai dari satu target kecil dulu, lalu biarkan progres harianmu tumbuh dari sana.',
+    '🔥': 'Satu habit sederhana sudah cukup untuk memulai ritme yang konsisten.',
+    '✅': 'Tambahkan tugas pertamamu supaya hari ini terasa lebih terarah dan ringan dijalani.',
+    '🗒️': 'Catat pekerjaan kecil dulu, lalu susun prioritasnya pelan-pelan.',
+    '📝': 'Satu catatan singkat sudah cukup untuk mulai membangun kebiasaan refleksi.',
+    '📖': 'Isi entri pertamamu agar ruang ini mulai terasa hidup dan personal.',
+    '🔮': 'Tulis satu refleksi sederhana untuk melihat pola dan arah langkahmu berikutnya.',
+    '💬': 'Simpan percakapan penting atau pelajaran kecil agar tidak cepat terlupa.',
+    '🌊': 'Saat data emosi mulai terisi, pola suasana hatimu akan lebih mudah dibaca.',
+    '📅': 'Check-in pertama akan jadi titik awal untuk melihat konsistensimu dari waktu ke waktu.',
+    '🔍': 'Coba ubah kata kunci atau filter supaya hasil yang kamu cari lebih mudah ditemukan.',
+    '😶': 'Belum ada yang cocok dengan pencarian ini. Coba kata yang lebih umum atau singkat.',
+    '🌸': 'Catatan kecil yang kamu isi di sini nanti akan membantu membaca pola tubuhmu.'
+  };
+  const label = String(msg).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const isSearchEmpty = /tidak ada/i.test(label);
+  const eyebrow = isSearchEmpty ? 'Belum ketemu' : 'Siap diisi';
+  const detail = EMPTY_DETAILS[iconKey] || 'Tambahkan entri pertamamu agar bagian ini mulai terasa lebih hidup.';
   const iconSvg = EMPTY_ICONS[iconKey] || `<svg width="28" height="28"><use href="#icon-info"/></svg>`;
-  return `<div class="empty" role="status" aria-label="${msg}">
-    <div class="empty-icon" aria-hidden="true">${iconSvg}</div>${msg}</div>`;
+  return `<div class="empty" role="status" aria-label="${label}">
+    <div class="empty-icon-wrap" aria-hidden="true">
+      <div class="empty-icon">${iconSvg}</div>
+    </div>
+    <div class="empty-eyebrow">${eyebrow}</div>
+    <div class="empty-title">${msg}</div>
+    <div class="empty-body">${detail}</div>
+  </div>`;
 }
 
 /**
  * Escape karakter HTML — WAJIB digunakan sebelum memasukkan
  * input pengguna ke innerHTML untuk mencegah XSS.
  */
+
+/* ============================================================
+   ONBOARDING — tampil sekali untuk user baru
+   ============================================================ */
+
+const ONBOARD_KEY = 'Trackify_onboarded_v1';
+
+const ONBOARD_STEPS = [
+  {
+    icon: '📋',
+    color: 'var(--cat-todo-bg)',
+    iconColor: 'var(--cat-todo)',
+    title: 'Mulai dari To-Do',
+    desc: 'Catat tugas harianmu, set deadline, dan tandai selesai satu per satu.'
+  },
+  {
+    icon: '🔥',
+    color: 'var(--cat-habit-bg)',
+    iconColor: 'var(--cat-habit)',
+    title: 'Bangun Habit Konsisten',
+    desc: 'Lacak kebiasaan positif setiap hari dan jaga streak-mu tetap hidup.'
+  },
+  {
+    icon: '📝',
+    color: 'var(--cat-journal-bg)',
+    iconColor: 'var(--cat-journal)',
+    title: 'Tulis Jurnal Harianmu',
+    desc: 'Refleksikan harimu — apa yang dilakukan, apa yang baik, apa yang bisa lebih baik.'
+  },
+  {
+    icon: '🎯',
+    color: 'var(--cat-target-bg)',
+    iconColor: 'var(--cat-target)',
+    title: 'Tetapkan Target Besar',
+    desc: 'Buat tujuan jangka panjang dan pantau progresnya sampai selesai.'
+  },
+];
+
+let _onboardStep = 0;
+
+function showOnboarding() {
+  if (localStorage.getItem(ONBOARD_KEY)) return;
+  _onboardStep = 0;
+  renderOnboardingStep();
+}
+
+function renderOnboardingStep() {
+  let backdrop = document.getElementById('onboarding-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'onboarding-backdrop';
+    backdrop.className = 'onboarding-backdrop';
+    document.body.appendChild(backdrop);
+  }
+
+  const step = ONBOARD_STEPS[_onboardStep];
+  const isLast = _onboardStep === ONBOARD_STEPS.length - 1;
+  const dots = ONBOARD_STEPS.map((_, i) =>
+    `<div class="onboarding-dot ${i === _onboardStep ? 'active' : ''}"></div>`
+  ).join('');
+
+  backdrop.innerHTML = `
+    <div class="onboarding-modal" role="dialog" aria-modal="true" aria-label="Selamat datang di Trackify">
+      <div class="onboarding-hero">
+        <div class="onboarding-icon-ring">${step.icon}</div>
+        <div class="onboarding-title">${step.title}</div>
+        <div class="onboarding-subtitle">${step.desc}</div>
+      </div>
+      <div class="onboarding-steps">
+        ${ONBOARD_STEPS.map((s, i) => `
+          <div class="onboarding-step" style="opacity:${i === _onboardStep ? '1' : '0.45'};border-color:${i === _onboardStep ? 'var(--border2)' : 'var(--border)'}">
+            <div class="onboarding-step-icon" style="background:${s.color};color:${s.iconColor}">${s.icon}</div>
+            <div class="onboarding-step-text">
+              <strong>${s.title}</strong>
+              <span>${s.desc}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="onboarding-footer">
+        <div class="onboarding-progress">${dots}</div>
+        <button class="btn btn-primary" data-action="onboardNext()">
+          ${isLast ? '🚀 Mulai Trackify!' : 'Lanjut →'}
+        </button>
+        <button class="onboarding-skip" data-action="onboardSkip()">Lewati panduan</button>
+      </div>
+    </div>`;
+}
+
+function onboardNext() {
+  _onboardStep++;
+  if (_onboardStep >= ONBOARD_STEPS.length) {
+    onboardDone();
+  } else {
+    renderOnboardingStep();
+  }
+}
+
+function onboardSkip() {
+  onboardDone();
+}
+
+function onboardDone() {
+  localStorage.setItem(ONBOARD_KEY, '1');
+  const backdrop = document.getElementById('onboarding-backdrop');
+  if (backdrop) {
+    backdrop.style.opacity = '0';
+    backdrop.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => backdrop.remove(), 320);
+  }
+}
+
 function escapeHTML(str) {
   if (str == null) return '';
   return String(str)
@@ -698,36 +1112,36 @@ function escapeHTML(str) {
 
 /* ── Daily quotes pool (rotates by date seed) ── */
 const DAILY_QUOTES = [
-  { text: 'Progress yang pelan tetap membawa kita maju, selama kita terus kembali ke hal-hal yang penting.', author: 'Trackify Reminder' },
-  { text: 'Hari yang baik dimulai dari satu langkah kecil yang konsisten.', author: 'Trackify Reminder' },
-  { text: 'Kamu tidak harus sempurna lanjutkan saja pelan-pelan, yang penting terus maju.', author: 'Trackify Reminder' },
-  { text: 'Setiap kebiasaan kecil yang dijaga adalah investasi terbaik untuk dirimu.', author: 'Trackify Reminder' },
-  { text: "It does not matter how slowly you go as long as you do not stop.", author: 'Confucius' },
-  { text: 'Small steps every day lead to big changes over time.', author: 'Trackify Reminder' },
-  { text: 'The secret of getting ahead is getting started.', author: 'Mark Twain' },
-  { text: 'Discipline is choosing between what you want now and what you want most.', author: 'Abraham Lincoln' },
-  { text: 'Konsistensi adalah jembatan antara impian dan pencapaian.', author: 'Trackify Reminder' },
-  { text: 'Fokus bukan pada seberapa jauh kamu harus pergi, tapi seberapa jauh kamu sudah melangkah.', author: 'Trackify Reminder' },
-  { text: 'You are allowed to be both a masterpiece and a work in progress.', author: 'Sophia Bush' },
-  { text: 'Action is the foundational key to all success.', author: 'Pablo Picasso' },
-  { text: 'Setiap pagi adalah kesempatan baru untuk menjadi versi terbaik dirimu.', author: 'Trackify Reminder' },
-  { text: 'Don\'t watch the clock; do what it does. Keep going.', author: 'Sam Levenson' },
-  { text: 'Mulailah dari mana kamu berada, gunakan apa yang kamu punya.', author: 'Arthur Ashe' },
-  { text: 'Keberhasilan bukan tentang kecepatan, tapi tentang arah yang tepat.', author: 'Trackify Reminder' },
-  { text: 'We are what we repeatedly do. Excellence, then, is not an act, but a habit.', author: 'Aristotle' },
-  { text: 'Satu hari yang produktif lebih bermakna dari seribu rencana yang tidak dijalankan.', author: 'Trackify Reminder' },
-  { text: 'Believe you can and you\'re halfway there.', author: 'Theodore Roosevelt' },
-  { text: 'Jaga prosesnya dan hasilnya akan mengikuti dengan sendirinya.', author: 'Trackify Reminder' },
-  { text: 'The only way to do great work is to love what you do.', author: 'Steve Jobs' },
-  { text: 'Kelelahan itu wajar, tapi berhenti selamanya itu pilihan. Ambil istirahat, lalu lanjutkan.', author: 'Trackify Reminder' },
-  { text: 'Growth is not linear. Trust the process.', author: 'Trackify Reminder' },
-  { text: 'Setiap malam yang kamu akhiri dengan syukur adalah fondasi hari esok yang lebih baik.', author: 'Trackify Reminder' },
-  { text: 'Be the energy you want to attract.', author: 'Trackify Reminder' },
-  { text: 'Kamu lebih kuat dari yang kamu kira, dan lebih dekat dari yang kamu rasa.', author: 'Trackify Reminder' },
-  { text: 'Habits are the compound interest of self-improvement.', author: 'James Clear' },
-  { text: 'Tidak ada hasil besar tanpa usaha kecil yang diulang setiap hari.', author: 'Trackify Reminder' },
-  { text: 'Rest when you\'re weary. Refresh and renew yourself.', author: 'Trackify Reminder' },
-  { text: 'Satu langkah maju setiap hari, dan kamu tidak akan mengenali dirimu setahun lagi.', author: 'Trackify Reminder' },
+  { text: 'Pelan bukan berarti tertinggal. Kadang, ritme yang lembut justru membuat kita sampai dengan utuh.', author: 'Trackify Notes' },
+  { text: 'Tidak semua hari harus besar. Hari yang tenang pun tetap bisa membawa perubahan.', author: 'Trackify Notes' },
+  { text: 'Tumbuh tidak selalu terdengar nyaring. Sering kali, ia hadir diam-diam lewat hal kecil yang kamu ulang dengan setia.', author: 'Trackify Notes' },
+  { text: 'Kamu tidak harus menguasai semuanya hari ini. Cukup rawat satu langkah yang terasa mungkin.', author: 'Trackify Notes' },
+  { text: 'Ada keindahan dalam proses yang pelan, ketika kamu memilih tetap hadir untuk dirimu sendiri.', author: 'Trackify Notes' },
+  { text: 'Hal-hal baik sering lahir dari kebiasaan sederhana yang dijaga tanpa banyak suara.', author: 'Trackify Notes' },
+  { text: 'Hari ini tidak perlu sempurna untuk tetap terasa berarti.', author: 'Trackify Notes' },
+  { text: 'Merapikan hidup kadang dimulai dari keputusan kecil untuk tidak menyerah pada dirimu sendiri.', author: 'Trackify Notes' },
+  { text: 'Istirahat bukan jeda dari progres. Ia bagian dari cara bertahan agar langkahmu tetap panjang.', author: 'Trackify Notes' },
+  { text: 'Jangan buru-buru menjadi versi terbaikmu. Nikmati juga versi dirimu yang sedang belajar.', author: 'Trackify Notes' },
+  { text: 'Beberapa perubahan paling indah datang tanpa gemuruh, hanya lewat konsistensi yang sunyi.', author: 'Trackify Notes' },
+  { text: 'Bahkan langkah paling kecil tetap mengubah arah hidup ketika dilakukan berulang kali.', author: 'Trackify Notes' },
+  { text: 'Kamu boleh berjalan perlahan, asalkan tidak berhenti percaya pada perjalananmu sendiri.', author: 'Trackify Notes' },
+  { text: 'Ada hari untuk berlari, ada hari untuk bernapas. Keduanya tetap bagian dari bertumbuh.', author: 'Trackify Notes' },
+  { text: 'Masa depan sering dibangun dari kebiasaan-kebiasaan kecil yang hari ini terasa sepele.', author: 'Trackify Notes' },
+  { text: 'Tidak apa-apa jika hidupmu belum rapi. Bunga pun mekar dengan caranya sendiri.', author: 'Trackify Notes' },
+  { text: 'Satu hal baik yang kamu lakukan hari ini bisa menjadi cahaya kecil untuk esok yang lebih tenang.', author: 'Trackify Notes' },
+  { text: 'Konsistensi bukan tentang selalu kuat, tapi tentang mau kembali meski sempat lelah.', author: 'Trackify Notes' },
+  { text: 'Kadang yang paling kamu butuhkan bukan motivasi besar, melainkan kelembutan untuk memulai lagi.', author: 'Trackify Notes' },
+  { text: 'Biarkan hidup bergerak setahap demi setahap. Tidak semua jawaban harus datang sekaligus.', author: 'Trackify Notes' },
+  { text: 'Versi dirimu yang sedang mencoba tetap layak dibanggakan.', author: 'Trackify Notes' },
+  { text: 'Ada damai dalam rutinitas yang sederhana, ketika kamu menjalaninya dengan penuh sadar.', author: 'Trackify Notes' },
+  { text: 'Hari yang biasa pun bisa menjadi indah saat kamu hadir sepenuhnya di dalamnya.', author: 'Trackify Notes' },
+  { text: 'Jangan meremehkan usaha kecilmu. Sering kali, itulah bentuk cinta paling jujur pada masa depan.', author: 'Trackify Notes' },
+  { text: 'Kamu tidak terlambat. Setiap orang punya musim mekar yang berbeda.', author: 'Trackify Notes' },
+  { text: 'Rawat energimu seperti kamu merawat mimpimu, pelan, lembut, dan penuh perhatian.', author: 'Trackify Notes' },
+  { text: 'Saat dunia terasa ramai, kembali pada hal-hal sederhana bisa menjadi bentuk penyembuhan.', author: 'Trackify Notes' },
+  { text: 'Tidak semua progres harus terlihat oleh orang lain untuk tetap bernilai.', author: 'Trackify Notes' },
+  { text: 'Langkah kecil yang jujur lebih indah daripada rencana besar yang tidak pernah disentuh.', author: 'Trackify Notes' },
+  { text: 'Mungkin hari ini belum sempurna, tapi kamu tetap bisa menutupnya dengan hati yang lembut pada diri sendiri.', author: 'Trackify Notes' },
 ];
 
 function getDailyQuote() {
@@ -748,16 +1162,16 @@ function renderDashboardDate() {
   const hour = now.getHours();
   let greeting, encouragement;
   if (hour >= 5 && hour < 12) {
-    greeting = 'Good morning,';
-    encouragement = 'Mulai harimu dengan penuh semangat. Setiap langkah kecil yang kamu ambil tetap berarti.';
+    greeting = 'Good morning';
+    encouragement = 'Mulai hari dengan tenang dan fokus.';
   } else if (hour >= 12 && hour < 15) {
-    greeting = 'Good afternoon,';
-    encouragement = 'Tetap fokus dan energik. Masih ada setengah hari lagi untuk bergerak.';
+    greeting = 'Good afternoon';
+    encouragement = 'Masih ada waktu untuk progres kecil hari ini.';
   } else if (hour >= 15 && hour < 18) {
-    greeting = 'Good evening,';
-    encouragement = 'Sore yang produktif adalah bekal malam yang tenang.';
+    greeting = 'Good evening';
+    encouragement = 'Rapikan harimu pelan-pelan sebelum malam tiba.';
   } else {
-    greeting = 'Good night,';
+    greeting = 'Good night';
     encouragement = 'Istirahat yang baik adalah bagian dari progres. Selamat beristirahat.';
   }
 
@@ -789,8 +1203,10 @@ function updateDashboard() {
   const doneTgt = state.targets.filter(t => t.status === 'done').length;
   setText('d-target', `${doneTgt}/${state.targets.length}`);
 
-  const totalChecks = habitRows.length * state.habits.length;
-  const doneChecks  = habitRows.reduce((sum, row) =>
+  const thisMonth = today().slice(0, 7); // "YYYY-MM"
+  const monthRows = habitRows.filter(r => r.slice(0, 7) === thisMonth);
+  const totalChecks = monthRows.length * state.habits.length;
+  const doneChecks  = monthRows.reduce((sum, row) =>
     sum + state.habits.filter((_, hi) => state.habitData[`${row}_${hi}`] === 'done').length, 0);
   setText('d-habit', totalChecks ? `${Math.min(100, Math.round(doneChecks / totalChecks * 100))}%` : '0%');
 
@@ -1131,10 +1547,13 @@ function getTargetProgress(target) {
    9. HABIT TRACKER
    ============================================================ */
 
-function renderHabit() {
+function renderHabit(options = {}) {
   const head = document.getElementById('habit-head');
   const body = document.getElementById('habit-body');
   if (!head || !body) return;
+  const habitWrap = head.closest('.table-wrap');
+  const shouldResetScroll = !!options.resetScroll;
+  const prevScrollLeft = habitWrap ? habitWrap.scrollLeft : 0;
 
   if (!state.habits.length) {
     head.innerHTML = '';
@@ -1148,7 +1567,7 @@ function renderHabit() {
       <th scope="col" class="habit-col-th habit-value-col" style="cursor:pointer;user-select:none"
           data-action="toggleHabitDelBtn(this, ${hi})"
           aria-label="Klik/tahan untuk hapus habit: ${escapeHTML(h)}">
-        <span class="habit-col-name">${escapeHTML(h)}</span>
+        <span class="habit-col-name" title="${escapeHTML(h)}">${escapeHTML(h)}</span>
         <button class="habit-col-del" data-action="delHabit(${hi})"
                 aria-label="Hapus habit: ${escapeHTML(h)}">${TRASH}</button>
       </th>`).join('') +
@@ -1164,14 +1583,10 @@ function renderHabit() {
     });
   }, 60);
 
-  // Scroll tabel ke kiri agar kolom baru tidak muncul dari kanan
-  const _habitWrap = head.closest('.table-wrap');
-  if (_habitWrap) _habitWrap.scrollLeft = 0;
-
   body.innerHTML = habitRows.map((row, ri) => {
     const cells = state.habits.map((h, hi) => {
       const val   = state.habitData[`${row}_${hi}`] || 'none';
-      const label = val==='done' ? 'Selesai' : val==='skip' ? 'Dilewati' : 'Belum';
+      const label = val==='done' ? 'Sukses' : val==='skip' ? 'Gagal' : 'Belum';
       return `<td class="check-cell habit-value-col">
         <button class="habit-check ${val==='done'?'done':val==='skip'?'skip':''}"
                 data-action="toggleHabit('${row}',${hi})"
@@ -1188,6 +1603,9 @@ function renderHabit() {
       <td class="habit-action-col"><button class="del-btn" data-action="delHabitRow(${ri})" aria-label="Hapus baris ${row}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
     </tr>`;
   }).join('');
+  if (habitWrap) {
+    habitWrap.scrollLeft = shouldResetScroll ? 0 : prevScrollLeft;
+  }
   setTimeout(registerAllLongPress, 60);
 }
 
@@ -1203,27 +1621,27 @@ function addHabit() {
   if (!v) { showToast('⚠ Nama habit tidak boleh kosong'); document.getElementById('new-habit')?.focus(); return; }
   if (state.habits.includes(v)) { showToast('⚠ Habit ini sudah ada'); return; }
   state.habits.push(v); clearFields('new-habit');
-  saveAndSync(); renderHabit(); showToast('✓ Habit ditambahkan');
+  saveAndSync(); renderHabit({ resetScroll: true }); showToast('✓ Habit ditambahkan');
 }
 
 function addHabitRow() {
   const d = document.getElementById('habit-date')?.value || today();
   if (habitRows.includes(d)) { showToast('ℹ Tanggal tersebut sudah ada'); return; }
   habitRows.push(d); habitRows.sort();
-  saveAndSync(); renderHabit(); showToast(`✓ Tanggal ${d} ditambahkan`);
+  saveAndSync(); renderHabit({ resetScroll: true }); showToast(`✓ Tanggal ${d} ditambahkan`);
 }
 
 function delHabitRow(i) {
   if (i < 0 || i >= habitRows.length) return;
   if (!konfirmasiHapus(`baris tanggal ${habitRows[i]}`)) return;
-  habitRows.splice(i, 1); saveAndSync(); renderHabit();
+  habitRows.splice(i, 1); saveAndSync(); renderHabit({ resetScroll: true });
 }
 
 function delHabit(i) {
   if (!state.habits[i]) return;
   clearTimeout(_habitDelTimer);
   if (!konfirmasiHapus(`habit "${state.habits[i]}"`)) return;
-  state.habits.splice(i, 1); saveAndSync(); renderHabit(); showToast('🗑️ Habit dihapus');
+  state.habits.splice(i, 1); saveAndSync(); renderHabit({ resetScroll: true }); showToast('🗑️ Habit dihapus');
 }
 
 /** Tap nama kolom habit → toggle tampil/sembunyi ikon sampah
@@ -2516,6 +2934,88 @@ function _saveEditLearning(i) {
    22. EXPORT / IMPORT DATA
    ============================================================ */
 
+// ── FEEDBACK ──────────────────────────────────────────────
+let _feedbackType = 'saran';
+
+function selectFeedbackType(btn) {
+  document.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _feedbackType = btn.getAttribute('data-type');
+}
+
+function submitFeedback() {
+  const msg  = (document.getElementById('feedback-msg')  || {}).value?.trim() || '';
+  const name = (document.getElementById('feedback-name') || {}).value?.trim() || '';
+  const email = (document.getElementById('feedback-email') || {}).value?.trim() || '';
+  const statusEl = document.getElementById('feedback-status');
+  const btnEl = document.getElementById('feedback-submit-btn');
+
+  if (!msg) { showToast('⚠ Tulis pesan dulu ya!'); return; }
+
+  const labelMap = { saran: '💡 Saran', bug: '🐛 Bug', fitur: '✨ Permintaan Fitur', lainnya: '💬 Lainnya' };
+  const label = labelMap[_feedbackType] || _feedbackType;
+
+  // Tampilkan loading state
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Mengirim...'; }
+  if (statusEl) { statusEl.style.display = 'none'; }
+
+  // Kirim via FormSubmit — ganti YOUR_EMAIL_HERE dengan email kamu
+  const TARGET_EMAIL = 'feedback@trackify.app'; // ← GANTI dengan email kamu
+  const formData = new FormData();
+  formData.append('_subject', `[Trackify Feedback] ${label} dari ${name || 'anonim'}`);
+  formData.append('_template', 'table');
+  formData.append('_captcha', 'false');
+  formData.append('Jenis', label);
+  formData.append('Nama', name || '(anonim)');
+  formData.append('Email Pengirim', email || '(tidak diisi)');
+  formData.append('Pesan', msg);
+  formData.append('Timestamp', new Date().toLocaleString('id-ID'));
+
+  fetch(`https://formsubmit.co/ajax/${TARGET_EMAIL}`, {
+    method: 'POST',
+    body: formData,
+    headers: { 'Accept': 'application/json' }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success === 'true' || data.success === true) {
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(34,197,94,0.12)';
+        statusEl.style.color = '#22c55e';
+        statusEl.style.border = '1px solid rgba(34,197,94,0.3)';
+        statusEl.textContent = '✓ Feedback berhasil dikirim! Terima kasih atas masukanmu 🙏';
+      }
+      showToast('✓ Feedback berhasil dikirim!');
+      document.getElementById('feedback-msg').value  = '';
+      document.getElementById('feedback-name').value = '';
+      if (document.getElementById('feedback-email')) document.getElementById('feedback-email').value = '';
+    } else {
+      throw new Error('Send failed');
+    }
+  })
+  .catch(() => {
+    // Fallback: buka mailto jika fetch gagal
+    const subject = encodeURIComponent(`[Trackify Feedback] ${label}`);
+    const body    = encodeURIComponent(`Jenis: ${label}\nDari: ${name || '(anonim)'}\nEmail: ${email || '-'}\n\n${msg}\n\n---\nDikirim dari Trackify v2.4.0`);
+    window.open(`mailto:${TARGET_EMAIL}?subject=${subject}&body=${body}`);
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'rgba(245,158,11,0.12)';
+      statusEl.style.color = '#f59e0b';
+      statusEl.style.border = '1px solid rgba(245,158,11,0.3)';
+      statusEl.textContent = '⚠ Membuka klien email sebagai alternatif...';
+    }
+    showToast('⚠ Membuka email client...');
+  })
+  .finally(() => {
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.innerHTML = '<svg width="14" height="14" style="vertical-align:-1px;margin-right:6px"><use href="#icon-feedback"/></svg>Kirim Feedback';
+    }
+  });
+}
+
 function exportData() {
   const backup = {
     version: '1.3.1',
@@ -2551,6 +3051,11 @@ function exportData() {
 function importData(input) {
   const file = input.files[0];
   if (!file) return;
+  if (!/\.json$/i.test(file.name) && file.type && !/json/i.test(file.type)) {
+    showToast('⚠ File import harus berformat JSON');
+    input.value = '';
+    return;
+  }
   if (!window.confirm('Import akan menimpa data saat ini.\n\nLanjutkan?')) {
     input.value = ''; return;
   }
@@ -2558,22 +3063,19 @@ function importData(input) {
   reader.onload = (e) => {
     try {
       const backup = JSON.parse(e.target.result);
-      const d = backup.data || backup; // support format lama
-      if (d.targets)     state.targets     = d.targets;
-      if (d.habits)      state.habits      = d.habits;
-      if (d.habitData)   state.habitData   = d.habitData;
-      if (d.habitRows)   habitRows         = d.habitRows;
-      if (d.todos)       state.todos       = d.todos;
-      if (d.journals)    state.journals    = d.journals;
-      if (d.reflections) state.reflections = d.reflections;
-      if (d.sosials)     state.sosials     = d.sosials;
-      if (d.emosis)      state.emosis      = d.emosis;
-      if (d.menstruasis) state.menstruasis = d.menstruasis;
-      if (d.learnings)   state.learnings   = d.learnings;
-      if (d.streak !== undefined) state.streak = d.streak;
-      if (d.lastCheckin) state.lastCheckin = d.lastCheckin;
-      if (d.checkins)    state.checkins    = d.checkins;
-      syncToFirebase();
+      const rawData = isPlainObject(backup?.data) ? backup.data : backup;
+      if (!isPlainObject(rawData)) throw new Error('Struktur backup tidak dikenali');
+
+      const merged = normalizeState({
+        ...createDefaultState(),
+        ...rawData,
+        theme: state.theme
+      });
+
+      state = merged;
+      habitRows = state.habitRows?.length ? [...state.habitRows] : [today()];
+      saveState();
+      requestFirebaseSync({ immediate: true });
       renderAll(); updateDashboard();
       showToast('✓ Data berhasil diimport!');
     } catch(err) {
@@ -2806,18 +3308,10 @@ function _updateFilterBadge(bar) {
    ============================================================ */
 
 function _evalAction(expr, target) {
-  // Jalankan ekspresi action dengan context window
   // Mapping ekspresi umum ke fungsi langsung (lebih aman dari eval)
   const fn = _ACTION_MAP[expr];
   if (fn) { fn(target); return; }
-
-  // Fallback untuk ekspresi sederhana "fnName(args)"
-  try {
-    const f = new Function(...Object.keys(window), `"use strict"; return (${expr})`);
-    f(...Object.values(window));
-  } catch(e) {
-    console.warn('[Trackify] action error:', expr, e.message);
-  }
+  console.warn('[Trackify] action tidak terdaftar:', expr);
 }
 
 // Map action string -> handler function (hindari eval untuk kasus umum)
@@ -2854,6 +3348,8 @@ const _ACTION_MAP = {
 
   // showPage calls
   "showPage('dashboard',this)":          (el) => showPage('dashboard', el),
+  "showPage('dashboard', navBtn(0))":    () => showPage('dashboard', navBtn(0)),
+  "showPage('dashboard',navBtn(0))":     () => showPage('dashboard', navBtn(0)),
   "showPage('target',this)":             (el) => showPage('target', el),
   "showPage('habit',this)":              (el) => showPage('habit', el),
   "showPage('todo',this)":               (el) => showPage('todo', el),
@@ -2865,11 +3361,14 @@ const _ACTION_MAP = {
   "showPage('sosial',this)":             (el) => showPage('sosial', el),
   "showPage('emosi',this)":              (el) => showPage('emosi', el),
   "showPage('settings',this)":           (el) => showPage('settings', el),
+  "showPage('privacy',this)":            (el) => showPage('privacy', el),
+  "showPage('feedback',this)":           (el) => showPage('feedback', el),
   "showPage('reward', navBtn(4))":       () => showPage('reward', navBtn(4)),
   "showPage('habit',navBtn(2))":         () => showPage('habit', navBtn(2)),
   "showPage('target',navBtn(1))":        () => showPage('target', navBtn(1)),
   "showPage('todo',navBtn(3))":          () => showPage('todo', navBtn(3)),
   "showPage('reflection', navBtn(7))":   () => showPage('reflection', navBtn(7)),
+  "showPage('settings',navBtn(11))":     () => showPage('settings', navBtn(11)),
 
   // metric cards (same as nav)
   "showPage('target',navBtn(1))":        () => showPage('target', navBtn(1)),
@@ -2936,7 +3435,7 @@ function runDataAction(el, e) {
               if (a === 'this') return el;
               if (/^-?\d+$/.test(a)) return parseInt(a, 10);
               if (/^['"].*['"]$/.test(a)) return a.slice(1, -1);
-              return a;
+              throw new Error(`Argumen action tidak diizinkan: ${a}`);
             });
           })(argStr);
           fn2(...args);
@@ -3365,7 +3864,7 @@ function renderHabitStatCards() {
       ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
       : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
     const todayColor = todayVal === 'done' ? 'var(--green)' : todayVal === 'skip' ? 'var(--red)' : 'var(--text3)';
-    const todayLabel = todayVal === 'done' ? 'Selesai' : todayVal === 'skip' ? 'Skip' : 'Belum';
+    const todayLabel = todayVal === 'done' ? 'Sukses' : todayVal === 'skip' ? 'Gagal' : 'Belum';
     const barColor = rate >= 70 ? 'var(--green)' : rate >= 40 ? 'var(--amber)' : 'var(--red)';
     return `<div class="habit-stat-card" style="border-color:${todayVal==='done'?'var(--green)':todayVal==='skip'?'var(--red)':'var(--border)'}">
       <div class="habit-stat-name" title="${escapeHTML(name)}">${escapeHTML(name)}</div>
@@ -3508,7 +4007,7 @@ function initHeatmapTooltip() {
       const date   = cell.dataset.date;
       const status = cell.dataset.status;
       const isToday = cell.dataset.today === 'true';
-      const label  = status === 'done' ? '✓ Selesai' : status === 'skip' ? '✕ Dilewati' : '— Kosong';
+      const label  = status === 'done' ? '✓ Sukses' : status === 'skip' ? '✕ Gagal' : '— Kosong';
       tooltip.textContent = `${date}  ${label}${isToday ? '  · Hari ini' : ''}`;
       tooltip.classList.add('show');
       tooltip.setAttribute('aria-hidden', 'false');
@@ -3526,7 +4025,7 @@ function initHeatmapTooltip() {
       const date   = cell.dataset.date;
       const status = cell.dataset.status;
       const isToday = cell.dataset.today === 'true';
-      const label  = status === 'done' ? '✓ Selesai' : status === 'skip' ? '✕ Dilewati' : '— Kosong';
+      const label  = status === 'done' ? '✓ Sukses' : status === 'skip' ? '✕ Gagal' : '— Kosong';
       tooltip.textContent = `${date}  ${label}${isToday ? '  · Hari ini' : ''}`;
       tooltip.classList.add('show');
       const rect = cell.getBoundingClientRect();

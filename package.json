@@ -4,8 +4,5 @@
   "type": "module",
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "firebase-admin": "^13.8.0"
   }
 }
