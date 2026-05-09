@@ -11,13 +11,13 @@
   "lang": "id",
   "icons": [
     {
-      "src": "./img/favicon.png",
+      "src": "./img/logo-pwa.png.",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./img/favicon.png",
+      "src": "./img/logo-pwa.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -30,13 +30,13 @@
       "name": "Habit Tracker",
       "short_name": "Habit",
       "url": "/?page=habit",
-      "icons": [{ "src": "/frontend/img/favicon.png", "sizes": "96x96" }]
+      "icons": [{ "src": "./img/logo-pwa.png", "sizes": "96x96" }]
     },
     {
       "name": "Jurnal Harian",
       "short_name": "Jurnal",
       "url": "/?page=journal",
-      "icons": [{ "src": "/frontend/img/favicon.png", "sizes": "96x96" }]
+      "icons": [{ "src": "./img/logo-pwa.png", "sizes": "96x96" }]
     }
   ]
 }
