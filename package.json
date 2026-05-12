@@ -1,6 +1,6 @@
 {
   "name": "trackify",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "private": true,
   "description": "Trackify — Personal Productivity Dashboard",
   "dependencies": {

@@ -3360,9 +3360,8 @@ canvas.donut-canvas {
   border-left: 3px solid transparent;
   transition: border-color .2s;
 }
-.todo-pri-high   { border-left-color: var(--red); }
-.todo-pri-medium { border-left-color: var(--amber); }
-.todo-pri-low    { border-left-color: var(--green); }
+.todo-status-pending { border-left-color: var(--red); }
+.todo-status-done    { border-left-color: var(--green); }
 
 .todo-meta-row {
   display: flex;
@@ -3589,6 +3588,27 @@ canvas.donut-canvas {
 /* journal entry accent */
 .journal-entry { border-left: 2.5px solid transparent; padding-left: 12px; }
 .journal-entry:hover { border-left-color: var(--cat-journal); }
+
+/* target row accent */
+.target-row td:first-child,
+.emosi-row td:first-child {
+  border-left: 2.5px solid transparent;
+  transition: border-color .2s;
+}
+.target-row:hover td:first-child,
+.emosi-row:hover td:first-child { border-left-color: var(--cat-journal); }
+
+@media (max-width: 900px) {
+  .target-row,
+  .emosi-row {
+    border-left: 2.5px solid transparent;
+    transition: border-color .2s;
+  }
+  .target-row:hover,
+  .emosi-row:hover { border-left-color: var(--cat-journal); }
+  .target-row td:first-child,
+  .emosi-row td:first-child { border-left: 0; }
+}
 
 /* ── Onboarding Modal ── */
 @keyframes onboard-in {

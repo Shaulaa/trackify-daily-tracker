@@ -119,6 +119,7 @@ onAuthChange((user) => {
       loadAllData();
     }
   } else {
+    const hadLoggedInUser = !!_lastLoadedUid;
     _lastLoadedUid = null;
     setCurrentUser(null);
     // Mobile topbar
@@ -133,6 +134,7 @@ onAuthChange((user) => {
     if (triggerIcon) { triggerIcon.innerHTML = getThemeLogoMarkup(28); triggerIcon.style.background = 'transparent'; }
     const triggerLabel = document.getElementById("auth-trigger-label");
     if (triggerLabel) triggerLabel.textContent = 'Akun';
+    if (hadLoggedInUser) clearAllDisplays({ clearStorage: true });
   }
 });
 
@@ -143,6 +145,10 @@ onAuthChange((user) => {
 async function loadAllData() {
   if (!getCurrentUser()) return;
   setLoadingOverlay(true);
+  const localHabits = Array.isArray(state.habits) ? [...state.habits] : [];
+  const localHabitData = isPlainObject(state.habitData) ? { ...state.habitData } : {};
+  const localHabitRows = Array.isArray(habitRows) ? [...habitRows] : [];
+  let shouldResyncHabits = false;
   try {
     const [
       journals, reflections, sosials, emosis, menstruasis,
@@ -174,8 +180,39 @@ async function loadAllData() {
 
     state.habitData = {};
     habits.forEach((h, hi) => {
-      (h.dates || []).forEach(date => {
-        state.habitData[`${date}_${hi}`] = 'done';
+      if (Array.isArray(h.valuesList)) {
+        h.valuesList.forEach(item => {
+          if (isPlainObject(item) && typeof item.date === 'string' && (item.value === 'done' || item.value === 'skip')) {
+            state.habitData[`${item.date}_${hi}`] = item.value;
+          }
+        });
+      } else if (isPlainObject(h.values)) {
+        Object.entries(h.values).forEach(([date, value]) => {
+          if (value === 'done' || value === 'skip') state.habitData[`${date}_${hi}`] = value;
+        });
+      } else {
+        (h.dates || []).forEach(date => {
+          state.habitData[`${date}_${hi}`] = 'done';
+        });
+      }
+    });
+    state.habits.forEach((name, hi) => {
+      const localHi = localHabits.indexOf(name);
+      if (localHi === -1) return;
+      Object.entries(localHabitData).forEach(([key, value]) => {
+        const suffix = `_${localHi}`;
+        if (!key.endsWith(suffix) || !['done', 'skip', 'none'].includes(value)) return;
+        const date = key.slice(0, -suffix.length);
+        const cloudKey = `${date}_${hi}`;
+        if (value === 'none') {
+          if (state.habitData[cloudKey]) {
+            delete state.habitData[cloudKey];
+            shouldResyncHabits = true;
+          }
+        } else if (state.habitData[cloudKey] !== value) {
+          state.habitData[cloudKey] = value;
+          shouldResyncHabits = true;
+        }
       });
     });
 
@@ -188,15 +225,30 @@ async function loadAllData() {
       if (!habitRows.includes(td)) habitRows.push(td), habitRows.sort();
     } else {
       const allDates = new Set([today()]);
-      habits.forEach(h => (h.dates || []).forEach(d => allDates.add(d)));
+      habits.forEach(h => {
+        if (Array.isArray(h.valuesList)) {
+          h.valuesList.forEach(item => {
+            if (isPlainObject(item) && typeof item.date === 'string') allDates.add(item.date);
+          });
+        } else if (isPlainObject(h.values)) Object.keys(h.values).forEach(d => allDates.add(d));
+        else (h.dates || []).forEach(d => allDates.add(d));
+      });
       habitRows = Array.from(allDates).sort();
     }
+    localHabitRows.forEach(row => {
+      if (row && !habitRows.includes(row)) {
+        habitRows.push(row);
+        shouldResyncHabits = true;
+      }
+    });
+    habitRows.sort();
 
     state.streak      = streakData.currentStreak || 0;
     state.lastCheckin = streakData.lastCheckIn || '';
     state.checkins    = (streakData.checkIns || []).map(date => ({ date, streak: streakData.currentStreak }));
     saveState();
     markCloudStateAsSynced();
+    if (shouldResyncHabits) requestFirebaseSync({ immediate: true });
 
     renderAll();
     updateDashboard();
@@ -214,14 +266,18 @@ async function loadAllData() {
   }
 }
 
-function clearAllDisplays() {
+function clearAllDisplays({ clearStorage = true } = {}) {
   resetSyncQueue();
-  const cachedState = StorageManager.load();
-  state = cachedState ? normalizeState(cachedState) : createDefaultState();
+  if (clearStorage) StorageManager.clear();
+  const theme = state?.theme || document.documentElement.dataset.theme || 'dark';
+  state = createDefaultState();
+  state.theme = theme === 'light' ? 'light' : 'dark';
   habitRows = state.habitRows?.length ? [...state.habitRows] : [today()];
   selectedCat = '';
+  saveState();
   renderAll();
   updateDashboard();
+  setAppState(state);
 }
 
 /*1. STORAGE LAYER*/
@@ -525,10 +581,14 @@ function buildSyncPayload() {
       priority: t.priority || 'medium', category: t.category || ''
     })),
     habits: state.habits.map((name, hi) => {
-      const dates = Object.entries(state.habitData)
-        .filter(([k, v]) => k.endsWith(`_${hi}`) && v === 'done')
-        .map(([k]) => k.split('_')[0]);
-      return { name, dates };
+      const suffix = `_${hi}`;
+      const valuesList = Object.entries(state.habitData)
+        .filter(([k, v]) => k.endsWith(suffix) && (v === 'done' || v === 'skip'))
+        .map(([k, value]) => ({ date: k.slice(0, -suffix.length), value }));
+      const dates = valuesList
+        .filter(item => item.value === 'done')
+        .map(item => item.date);
+      return { name, dates, valuesList };
     }),
     streak: {
       currentStreak: state.streak,
@@ -633,9 +693,9 @@ async function syncHabits(items) {
 }
 
 /** saveState + sync ke Firebase */
-function saveAndSync() {
+function saveAndSync(options = {}) {
   saveState();
-  requestFirebaseSync();
+  requestFirebaseSync(options);
 }
 
 /* ============================================================
@@ -1108,6 +1168,12 @@ function escapeHTML(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function actionArg(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return String(parseInt(value, 10));
+  return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}'`;
+}
+
 /* ============================================================
    7. DASHBOARD
    ============================================================ */
@@ -1254,9 +1320,9 @@ function updateDashboard() {
     if (!state.todos.length) { tp.innerHTML = emptyHTML('✅', 'Belum ada tugas.'); }
     else {
       tp.innerHTML = state.todos.slice(0, 5).map(t => `
-        <div class="todo-item" role="listitem">
+        <div class="todo-item todo-status-${t.done ? 'done' : 'pending'}" role="listitem">
           <button class="todo-check ${t.done?'done':''}"
-                  data-action="toggleTodoById(${t.id})"
+                  data-action="toggleTodoById(${actionArg(t.id)})"
                   aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
                   aria-pressed="${t.done}">
             ${t.done ? '✓' : ''}
@@ -1615,7 +1681,7 @@ function toggleHabit(row, hi) {
   const key = `${row}_${hi}`;
   const cur = state.habitData[key] || 'none';
   state.habitData[key] = cur==='none' ? 'done' : cur==='done' ? 'skip' : 'none';
-  saveAndSync(); renderHabit(); updateDashboard();
+  saveAndSync({ immediate: true }); renderHabit(); updateDashboard();
 }
 
 function addHabit() {
@@ -1677,6 +1743,7 @@ function renderTodo() {
   if (!state.todos.length) { el.innerHTML = emptyHTML('🗒️','Belum ada tugas. Tambahkan sekarang!'); return; }
   el.setAttribute('role', 'list');
   el.innerHTML = state.todos.map(t => {
+    const todoIdArg = actionArg(t.id);
     let dueMeta = '';
     if (t.dueDate || t.dueTime) {
       const isOverdue = t.dueDate && !t.done && t.dueDate < today();
@@ -1684,9 +1751,9 @@ function renderTodo() {
         ${t.dueDate ? t.dueDate : ''}${t.dueDate && t.dueTime ? ' · ' : ''}${t.dueTime ? t.dueTime : ''}
       </span>`;
     }
-    return `<div class="todo-item" role="listitem">
+    return `<div class="todo-item todo-status-${t.done ? 'done' : 'pending'}" role="listitem">
       <button class="todo-check ${t.done?'done':''}"
-              data-action="toggleTodoById(${t.id})"
+              data-action="toggleTodoById(${todoIdArg})"
               aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
               aria-pressed="${t.done}">
         ${t.done ? '✓' : ''}
@@ -1695,8 +1762,8 @@ function renderTodo() {
         <span class="todo-text ${t.done?'done':''}">${escapeHTML(t.text)}</span>
         ${dueMeta}
       </div>
-      <button class="edit-btn" data-action="editTodo(${t.id})" aria-label="Edit tugas: ${escapeHTML(t.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-      <button class="del-btn" data-action="delTodoById(${t.id})"
+      <button class="edit-btn" data-action="editTodo(${todoIdArg})" aria-label="Edit tugas: ${escapeHTML(t.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="del-btn" data-action="delTodoById(${todoIdArg})"
               aria-label="Hapus tugas: ${escapeHTML(t.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;
   }).join('');
@@ -1911,7 +1978,7 @@ function renderEmosi() {
   if (!tb) return;
   if (!state.emosis.length) { tb.innerHTML = `<tr><td colspan="5">${emptyHTML('🌊','Belum ada data emosi.')}</td></tr>`; return; }
   tb.innerHTML = state.emosis.map((e, i) => `
-    <tr>
+    <tr class="emosi-row">
       <td data-label="Tanggal" style="white-space:nowrap;font-size:12px;color:var(--text3)"><time datetime="${e.date}">${e.date}</time></td>
       <td data-label="Mood"><span class="badge ${MOOD_COLOR[e.mood]||'badge-purple'}">${escapeHTML(e.mood)}</span></td>
       <td data-label="Penyebab" style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'—'}</td>
@@ -3417,19 +3484,24 @@ function runDataAction(el, e) {
       if (typeof fn2 === 'function') {
         try {
           const args = argStr === '' ? [] : (function parseArgs(s) {
-            const result = []; let cur = ''; let inQ = false; let qChar = '';
+            const result = [];
+            let cur = '';
+            let inQ = false;
+            let qChar = '';
+            let quoted = false;
             for (let i = 0; i < s.length; i++) {
               const c = s[i];
-              if (!inQ && (c === "'" || c === '"')) { inQ = true; qChar = c; }
+              if (inQ && c === '\\' && i + 1 < s.length) { cur += s[++i]; }
+              else if (!inQ && (c === "'" || c === '"')) { inQ = true; qChar = c; quoted = true; }
               else if (inQ && c === qChar) { inQ = false; }
-              else if (!inQ && c === ',') { result.push(cur.trim()); cur = ''; continue; }
+              else if (!inQ && c === ',') { result.push({ value: cur.trim(), quoted }); cur = ''; quoted = false; continue; }
               else { cur += c; }
             }
-            result.push(cur.trim());
-            return result.map(a => {
+            result.push({ value: cur.trim(), quoted });
+            return result.map(({ value: a, quoted: isQuoted }) => {
               if (a === 'this') return el;
               if (/^-?\d+$/.test(a)) return parseInt(a, 10);
-              if (/^['"].*['"]$/.test(a)) return a.slice(1, -1);
+              if (isQuoted) return a;
               throw new Error(`Argumen action tidak diizinkan: ${a}`);
             });
           })(argStr);
@@ -3538,7 +3610,7 @@ function renderTargetsFiltered() {
     const prog = getTargetProgress(t);
     const isDone = t.status === 'done';
     const noteSnip = t.note ? escapeHTML(t.note.slice(0, 60)) + (t.note.length > 60 ? '...' : '') : '<span style="color:var(--text3)">—</span>';
-    return `<tr>
+    return `<tr class="target-row">
       <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
       <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
       <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
@@ -3642,6 +3714,7 @@ function renderTodosFiltered() {
 
   el.setAttribute('role', 'list');
   el.innerHTML = list.map(t => {
+    const todoIdArg = actionArg(t.id);
     const p = t.priority || 'medium';
     const priColor = p === 'high' ? 'var(--red)' : p === 'low' ? 'var(--green)' : 'var(--amber)';
     const priIcon  = p === 'high'
@@ -3660,9 +3733,9 @@ function renderTodosFiltered() {
 
     const catBadge = t.category ? `<span class="todo-cat-badge">${_CAT_ICON[t.category]||''} ${escapeHTML(t.category)}</span>` : '';
 
-    return `<div class="todo-item todo-pri-${p}" role="listitem">
+    return `<div class="todo-item todo-pri-${p} todo-status-${t.done ? 'done' : 'pending'}" role="listitem">
       <button class="todo-check ${t.done?'done':''}"
-              data-action="toggleTodoById(${t.id})"
+              data-action="toggleTodoById(${todoIdArg})"
               aria-label="${t.done?'Tandai belum selesai':'Tandai selesai'}: ${escapeHTML(t.text)}"
               aria-pressed="${t.done}">${t.done ? '✓' : ''}</button>
       <div class="todo-content">
@@ -3673,8 +3746,8 @@ function renderTodosFiltered() {
           ${dueMeta}
         </div>
       </div>
-      <button class="edit-btn" data-action="editTodo(${t.id})" aria-label="Edit tugas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-      <button class="del-btn" data-action="delTodoById(${t.id})" aria-label="Hapus tugas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      <button class="edit-btn" data-action="editTodo(${todoIdArg})" aria-label="Edit tugas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="del-btn" data-action="delTodoById(${todoIdArg})" aria-label="Hapus tugas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;
   }).join('');
   setTimeout(registerAllLongPress, 60);
