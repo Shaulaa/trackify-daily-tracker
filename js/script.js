@@ -18,7 +18,7 @@ import {
   initNotifications, setAppState, setCurrentUser, getPermissionStatus,
   enableNotifications, disableNotifications,
   updateTypePrefs, updateDeadlinePrefs, testNotification,
-  renderNotifSettings, clearNotifHistoryUI
+  renderNotifSettings, clearNotifHistoryUI, getPrefs, getNotificationHistorySync
 } from './notifications.js';
 
 // ============================================================
@@ -68,9 +68,15 @@ document.addEventListener('click', (event) => {
     setAuthPopupState('auth-menu', 'auth-avatar-btn', false);
   }
 
-  const desktopAuth = document.getElementById('auth-widget-desktop');
+  const desktopAuth = document.querySelector('.sidebar-profile-anchor');
   if (desktopAuth && !desktopAuth.contains(event.target)) {
     setAuthPopupState('auth-dropdown', 'auth-trigger-btn', false);
+  }
+
+  const notifPanel = document.getElementById('notification-center-panel');
+  const notifTrigger = event.target.closest?.('.notification-trigger-btn');
+  if (notifPanel?.classList.contains('show') && !notifPanel.contains(event.target) && !notifTrigger) {
+    closeNotificationCenter();
   }
 });
 
@@ -131,9 +137,13 @@ onAuthChange((user) => {
     if (dropOut) dropOut.style.display = "block";
     if (dropIn)  dropIn.style.display = "none";
     const triggerIcon = document.getElementById("auth-trigger-icon");
-    if (triggerIcon) { triggerIcon.innerHTML = getThemeLogoMarkup(28); triggerIcon.style.background = 'transparent'; }
+    if (triggerIcon) {
+      triggerIcon.innerHTML = getThemeLogoMarkup(34);
+      triggerIcon.style.background = 'transparent';
+      triggerIcon.style.border = '0';
+    }
     const triggerLabel = document.getElementById("auth-trigger-label");
-    if (triggerLabel) triggerLabel.textContent = 'Akun';
+    if (triggerLabel) triggerLabel.textContent = 'Personal Space';
     if (hadLoggedInUser) clearAllDisplays({ clearStorage: true });
   }
 });
@@ -148,7 +158,9 @@ async function loadAllData() {
   const localHabits = Array.isArray(state.habits) ? [...state.habits] : [];
   const localHabitData = isPlainObject(state.habitData) ? { ...state.habitData } : {};
   const localHabitRows = Array.isArray(habitRows) ? [...habitRows] : [];
+  const localQuickActions = normalizeQuickActions(state.quickActions);
   let shouldResyncHabits = false;
+  let shouldResyncDashboardPrefs = false;
   try {
     const [
       journals, reflections, sosials, emosis, menstruasis,
@@ -246,13 +258,17 @@ async function loadAllData() {
     state.streak      = streakData.currentStreak || 0;
     state.lastCheckin = streakData.lastCheckIn || '';
     state.checkins    = (streakData.checkIns || []).map(date => ({ date, streak: streakData.currentStreak }));
+    const cloudQuickActions = normalizeQuickActions(streakData.quickActions);
+    state.quickActions = cloudQuickActions.length ? cloudQuickActions : localQuickActions;
+    if (localQuickActions.length && !cloudQuickActions.length) shouldResyncDashboardPrefs = true;
     saveState();
     markCloudStateAsSynced();
-    if (shouldResyncHabits) requestFirebaseSync({ immediate: true });
+    if (shouldResyncHabits || shouldResyncDashboardPrefs) requestFirebaseSync({ immediate: true });
 
     renderAll();
     updateDashboard();
     await initNotifications();
+    updateNotificationCenter();
     showToast('✓ Data berhasil dimuat dari cloud');
     // Tampilkan onboarding untuk user baru (cek semua data kosong)
     const isNewUser = !state.habits.length && !state.todos.length && !state.journals.length && !state.targets.length;
@@ -326,11 +342,49 @@ function normalizeDateList(value, fallback = []) {
   )).sort();
 }
 
+const DASHBOARD_QUICK_ACTION_OPTIONS = [
+  { id: 'target', label: 'Tambah Target', page: 'target', icon: 'icon-qa-target', className: 'qa-icon--green' },
+  { id: 'habit', label: 'Check Habit', page: 'habit', icon: 'icon-qa-habit', className: 'qa-icon--green' },
+  { id: 'todo', label: 'Tambah Tugas', page: 'todo', icon: 'icon-qa-task', className: 'qa-icon--blue' },
+  { id: 'journal', label: 'Tulis Jurnal', page: 'journal', icon: 'icon-journal', className: 'qa-icon--violet' },
+  { id: 'learning', label: 'Catat Belajar', page: 'learning', icon: 'icon-qa-belajar', className: 'qa-icon--pink' },
+  { id: 'mood', label: 'Catat Mood', page: 'emosi', icon: 'icon-qa-emosi', className: 'qa-icon--amber' },
+  { id: 'reflection', label: 'Refleksi', page: 'reflection', icon: 'icon-qa-refleksi', className: 'qa-icon--lilac' },
+  { id: 'reward', label: 'Lihat Reward', page: 'reward', icon: 'icon-qa-reward', className: 'qa-icon--amber-strong' },
+  { id: 'sosial', label: 'Catatan Sosial', page: 'sosial', icon: 'icon-komunikasi', className: 'qa-icon--blue' },
+  { id: 'menstruasi', label: 'Siklus', page: 'menstruasi', icon: 'icon-siklus', className: 'qa-icon--pink' },
+  { id: 'settings', label: 'Pengaturan', page: 'settings', icon: 'icon-settings', className: 'qa-icon--neutral' },
+  { id: 'privacy', label: 'Privasi', page: 'privacy', icon: 'icon-warning', className: 'qa-icon--neutral' },
+  { id: 'feedback', label: 'Feedback', page: 'feedback', icon: 'icon-feedback', className: 'qa-icon--violet' },
+];
+
+const DASHBOARD_QUICK_ACTION_BY_ID = Object.fromEntries(
+  DASHBOARD_QUICK_ACTION_OPTIONS.map(option => [option.id, option])
+);
+
+function normalizeQuickActions(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isPlainObject)
+    .map(item => {
+      const id = typeof item.id === 'string' ? item.id : '';
+      const option = DASHBOARD_QUICK_ACTION_BY_ID[id];
+      if (!option) return null;
+      const label = typeof item.label === 'string' && item.label.trim()
+        ? item.label.trim().slice(0, 22)
+        : option.label;
+      return { id, label };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
 function normalizeState(raw) {
   const base = createDefaultState();
   if (!isPlainObject(raw)) return base;
 
   base.theme = raw.theme === 'light' ? 'light' : 'dark';
+  base.quickActions = normalizeQuickActions(raw.quickActions);
 
   base.targets = Array.isArray(raw.targets) ? raw.targets
     .filter(isPlainObject)
@@ -500,6 +554,9 @@ function createDefaultState() {
     learnings:   [],
     selectedCat: '',
 
+    // Dashboard quick action tambahan: [{ id, label }]
+    quickActions: [],
+
     // ID counter untuk todo (agar index tidak bergeser saat delete)
     _nextId: 1
   };
@@ -536,6 +593,7 @@ function saveState() {
   state.habitRows = habitRows;
   StorageManager.save(state);
   setAppState(state);
+  updateNotificationCenter();
 }
 
 // ============================================================
@@ -594,7 +652,8 @@ function buildSyncPayload() {
       currentStreak: state.streak,
       lastCheckIn: state.lastCheckin,
       checkIns: state.checkins.map(c => c.date),
-      habitRows: [...habitRows]
+      habitRows: [...habitRows],
+      quickActions: normalizeQuickActions(state.quickActions)
     }
   };
 }
@@ -746,6 +805,7 @@ function renderAll() {
   updateDashboard();
   updateRewardPage();
   updateLearningStats();
+  updateNotificationCenter();
   setTimeout(registerAllLongPress, 60);
 }
 
@@ -901,6 +961,127 @@ function quickTarget()   { showPage('target',     navBtn(1));  focusEl('t-name')
 
 function navBtn(n) { return document.querySelectorAll('.nav-btn')[n] || null; }
 function focusEl(id, ms = 300) { setTimeout(() => document.getElementById(id)?.focus(), ms); }
+
+const QUICK_PAGE_FOCUS = {
+  target: 't-name',
+  todo: 'todo-input',
+  journal: 'j-did',
+  reflection: 'r-grow',
+  sosial: 's-who',
+  emosi: 'e-mood',
+  learning: 'l-subject',
+  menstruasi: 'mens-start'
+};
+
+function openQuickPage(pageId) {
+  if (!VALID_PAGES.has(pageId)) return;
+  showPage(pageId, null);
+  const focusId = QUICK_PAGE_FOCUS[pageId];
+  if (focusId) focusEl(focusId);
+}
+
+function renderQuickActionSelect() {
+  const select = document.getElementById('qa-custom-action');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = DASHBOARD_QUICK_ACTION_OPTIONS
+    .map(option => `<option value="${option.id}">${escapeHTML(option.label)}</option>`)
+    .join('');
+  if (current && DASHBOARD_QUICK_ACTION_BY_ID[current]) select.value = current;
+}
+
+function renderQuickActionModalList() {
+  const list = document.getElementById('qa-custom-list');
+  if (!list) return;
+  const actions = normalizeQuickActions(state.quickActions);
+  if (!actions.length) {
+    list.innerHTML = '<p class="quick-action-modal__empty">Belum ada shortcut tambahan.</p>';
+    return;
+  }
+  list.innerHTML = actions.map((item, index) => {
+    const option = DASHBOARD_QUICK_ACTION_BY_ID[item.id];
+    return `<div class="quick-action-modal__item">
+      <span class="qa-icon ${option.className}" aria-hidden="true"><svg width="18" height="18"><use href="#${option.icon}"/></svg></span>
+      <span>${escapeHTML(item.label)}</span>
+      <button type="button" data-action="removeQuickAction(${index})" aria-label="Hapus ${escapeHTML(item.label)}">
+        <svg width="14" height="14"><use href="#icon-trash"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function renderCustomQuickActions() {
+  const grid = document.getElementById('quick-actions-grid');
+  const addButton = grid?.querySelector('.quick-action-btn--more');
+  if (!grid || !addButton) return;
+
+  grid.querySelectorAll('.quick-action-btn--custom').forEach(btn => btn.remove());
+  state.quickActions = normalizeQuickActions(state.quickActions);
+
+  state.quickActions.forEach(item => {
+    const option = DASHBOARD_QUICK_ACTION_BY_ID[item.id];
+    if (!option) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'quick-action-btn quick-action-btn--custom';
+    btn.setAttribute('data-action', `openQuickPage('${option.page}')`);
+    btn.setAttribute('aria-label', item.label);
+    btn.innerHTML = `
+      <div class="qa-icon ${option.className}" aria-hidden="true"><svg width="22" height="22"><use href="#${option.icon}"/></svg></div>
+      <div class="qa-label">${escapeHTML(item.label)}</div>`;
+    grid.insertBefore(btn, addButton);
+  });
+}
+
+function openQuickActionModal() {
+  renderQuickActionSelect();
+  renderQuickActionModalList();
+  const bg = document.getElementById('quick-action-modal-bg');
+  const input = document.getElementById('qa-custom-label');
+  if (!bg) return;
+  if (input) input.value = '';
+  bg.classList.add('show');
+  bg.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('qa-custom-action')?.focus(), 80);
+}
+
+function closeQuickActionModal() {
+  const bg = document.getElementById('quick-action-modal-bg');
+  bg?.classList.remove('show');
+  bg?.setAttribute('aria-hidden', 'true');
+}
+
+function saveQuickAction() {
+  const select = document.getElementById('qa-custom-action');
+  const input = document.getElementById('qa-custom-label');
+  const option = DASHBOARD_QUICK_ACTION_BY_ID[select?.value || ''];
+  if (!option) {
+    showToast('Pilih aksi yang valid');
+    return;
+  }
+  state.quickActions = normalizeQuickActions(state.quickActions);
+  if (state.quickActions.length >= 8) {
+    showToast('Maksimal 8 quick action tambahan');
+    return;
+  }
+  const label = (input?.value || '').trim().slice(0, 22) || option.label;
+  state.quickActions.push({ id: option.id, label });
+  saveAndSync();
+  renderCustomQuickActions();
+  renderQuickActionModalList();
+  if (input) input.value = '';
+  showToast('Quick action ditambahkan');
+}
+
+function removeQuickAction(index) {
+  state.quickActions = normalizeQuickActions(state.quickActions);
+  if (index < 0 || index >= state.quickActions.length) return;
+  state.quickActions.splice(index, 1);
+  saveAndSync();
+  renderCustomQuickActions();
+  renderQuickActionModalList();
+  showToast('Quick action dihapus');
+}
 
 // Sidebar mobile
 function toggleSidebar() {
@@ -1059,28 +1240,28 @@ const ONBOARD_KEY = 'Trackify_onboarded_v1';
 
 const ONBOARD_STEPS = [
   {
-    icon: '📋',
+    icon: 'icon-todo',
     color: 'var(--cat-todo-bg)',
     iconColor: 'var(--cat-todo)',
     title: 'Mulai dari To-Do',
     desc: 'Catat tugas harianmu, set deadline, dan tandai selesai satu per satu.'
   },
   {
-    icon: '🔥',
+    icon: 'icon-fire',
     color: 'var(--cat-habit-bg)',
     iconColor: 'var(--cat-habit)',
     title: 'Bangun Habit Konsisten',
     desc: 'Lacak kebiasaan positif setiap hari dan jaga streak-mu tetap hidup.'
   },
   {
-    icon: '📝',
+    icon: 'icon-journal',
     color: 'var(--cat-journal-bg)',
     iconColor: 'var(--cat-journal)',
     title: 'Tulis Jurnal Harianmu',
-    desc: 'Refleksikan harimu — apa yang dilakukan, apa yang baik, apa yang bisa lebih baik.'
+    desc: 'Refleksikan harimu, apa yang dilakukan, apa yang baik, dan apa yang bisa lebih baik.'
   },
   {
-    icon: '🎯',
+    icon: 'icon-target',
     color: 'var(--cat-target-bg)',
     iconColor: 'var(--cat-target)',
     title: 'Tetapkan Target Besar',
@@ -1089,6 +1270,10 @@ const ONBOARD_STEPS = [
 ];
 
 let _onboardStep = 0;
+
+function onboardingIcon(iconId, size = 28) {
+  return `<svg width="${size}" height="${size}" aria-hidden="true"><use href="#${iconId}"/></svg>`;
+}
 
 function showOnboarding() {
   if (localStorage.getItem(ONBOARD_KEY)) return;
@@ -1114,14 +1299,14 @@ function renderOnboardingStep() {
   backdrop.innerHTML = `
     <div class="onboarding-modal" role="dialog" aria-modal="true" aria-label="Selamat datang di Trackify">
       <div class="onboarding-hero">
-        <div class="onboarding-icon-ring">${step.icon}</div>
+        <div class="onboarding-icon-ring">${onboardingIcon(step.icon, 32)}</div>
         <div class="onboarding-title">${step.title}</div>
         <div class="onboarding-subtitle">${step.desc}</div>
       </div>
       <div class="onboarding-steps">
         ${ONBOARD_STEPS.map((s, i) => `
           <div class="onboarding-step" style="opacity:${i === _onboardStep ? '1' : '0.45'};border-color:${i === _onboardStep ? 'var(--border2)' : 'var(--border)'}">
-            <div class="onboarding-step-icon" style="background:${s.color};color:${s.iconColor}">${s.icon}</div>
+            <div class="onboarding-step-icon" style="background:${s.color};color:${s.iconColor}">${onboardingIcon(s.icon, 20)}</div>
             <div class="onboarding-step-text">
               <strong>${s.title}</strong>
               <span>${s.desc}</span>
@@ -1131,7 +1316,7 @@ function renderOnboardingStep() {
       <div class="onboarding-footer">
         <div class="onboarding-progress">${dots}</div>
         <button class="btn btn-primary" data-action="onboardNext()">
-          ${isLast ? '🚀 Mulai Trackify!' : 'Lanjut →'}
+          ${isLast ? 'Mulai Trackify!' : 'Lanjut'}
         </button>
         <button class="onboarding-skip" data-action="onboardSkip()">Lewati panduan</button>
       </div>
@@ -1250,7 +1435,7 @@ function renderDashboardDate() {
 
   const greetingText = document.getElementById('dash-greeting-text');
   if (greetingText) {
-    greetingText.textContent = firstName ? `${greeting}, ${firstName}` : `${greeting}`;
+    greetingText.textContent = firstName ? `${greeting}, ${firstName}!` : `${greeting}!`;
   }
 
   const encouragementText = document.getElementById('dash-encouragement-text');
@@ -1266,7 +1451,7 @@ function renderDashboardDate() {
   if (quoteAuthorEl) quoteAuthorEl.textContent = quote.author;
 }
 
-function updateDashboard() {
+function updateDashboardLegacy() {
   // Metrik ringkasan
   const doneTgt = state.targets.filter(t => t.status === 'done').length;
   setText('d-target', `${doneTgt}/${state.targets.length}`);
@@ -1354,6 +1539,429 @@ function updateDashboard() {
 }
 
 /* ── GRAFIK DASHBOARD (Chart.js via CDN) ── */
+function formatDashboardMinutes(minutes) {
+  const total = Math.max(0, Number(minutes) || 0);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+function habitCompletionForDate(dateStr) {
+  const total = state.habits.length;
+  if (!total) return { done: 0, total: 0, percent: 0 };
+  const done = state.habits.filter((_, hi) => state.habitData[`${dateStr}_${hi}`] === 'done').length;
+  return { done, total, percent: Math.round(done / total * 100) };
+}
+
+function getTodayFocusMinutes() {
+  const td = today();
+  return state.learnings
+    .filter(l => l.date === td)
+    .reduce((sum, l) => sum + (parseInt(l.duration, 10) || 0), 0);
+}
+
+function getTodayMoodLabel() {
+  const td = today();
+  const emosi = state.emosis.find(e => e.date === td && e.mood);
+  if (emosi?.mood) return emosi.mood;
+  const journal = state.journals.find(j => j.date === td && j.mood);
+  return journal?.mood || 'Belum';
+}
+
+function dashboardEmpty(iconId, title, body = '') {
+  return `<div class="dashboard-empty" role="status">
+    <span class="dashboard-empty__icon" aria-hidden="true"><svg width="24" height="24"><use href="#${iconId}"/></svg></span>
+    <strong>${escapeHTML(title)}</strong>
+    ${body ? `<span>${escapeHTML(body)}</span>` : ''}
+  </div>`;
+}
+
+let dashboardHeatmapOffset = 0;
+let dashboardMiniCalendarOffset = 0;
+const DASHBOARD_HEATMAP_WEEKS = 21;
+const DASHBOARD_HEATMAP_ROWS = 7;
+
+function addDashboardDays(date, amount) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function dateToISO(date) {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatDashboardHeatmapRange(startDate, endDate) {
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const start = startDate.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' })
+  });
+  const end = endDate.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+  return `${start} - ${end}`;
+}
+
+function moveDashboardHeatmap(delta) {
+  dashboardHeatmapOffset = Math.min(0, dashboardHeatmapOffset + delta);
+  renderDashboardHeatmap();
+}
+
+function resetDashboardHeatmap() {
+  dashboardHeatmapOffset = 0;
+  renderDashboardHeatmap();
+}
+
+function moveDashboardMiniCalendar(delta) {
+  dashboardMiniCalendarOffset += delta;
+  renderDashboardMiniCalendar();
+}
+
+function stripDashboardMarkup(value) {
+  return String(value || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function getDashboardMensInsight(phaseText) {
+  if (/menstruasi/i.test(phaseText)) {
+    return 'Turunkan tempo hari ini. Prioritaskan istirahat, hidrasi, dan tugas ringan.';
+  }
+  if (/ovulasi/i.test(phaseText)) {
+    return 'Energi sosial biasanya naik. Cocok untuk presentasi, diskusi, dan tugas kolaboratif.';
+  }
+  if (/luteal/i.test(phaseText)) {
+    return 'Jaga ritme stabil. Pecah tugas besar jadi langkah kecil dan beri jeda cukup.';
+  }
+  if (/folikular/i.test(phaseText)) {
+    return 'Energi mulai naik. Manfaatkan untuk belajar, merancang target, dan memulai hal baru.';
+  }
+  return 'Data siklus membantu Trackify memberi perkiraan yang lebih personal.';
+}
+
+function getDashboardMensRecommendations(phaseText) {
+  if (/menstruasi/i.test(phaseText)) {
+    return [
+      ['icon-moon', 'Tidur lebih awal'],
+      ['icon-glass', 'Minum air putih'],
+      ['icon-glass', 'Minum air hangat'],
+      ['icon-journal', 'Catat gejala'],
+      ['icon-habit', 'Stretching ringan'],
+      ['icon-emosi', 'Kelola mood'],
+      ['icon-learning', 'Belajar santai'],
+      ['icon-fire', 'Kompres hangat']
+    ];
+  }
+  if (/folikular/i.test(phaseText)) {
+    return [
+      ['icon-learning', 'Fokus belajar'],
+      ['icon-target', 'Susun target baru'],
+      ['icon-todo', 'Mulai tugas penting'],
+      ['icon-habit', 'Olahraga ringan'],
+      ['icon-journal', 'Brainstorm ide'],
+      ['icon-glass', 'Minum air putih'],
+      ['icon-check-circle', 'Bangun rutinitas']
+    ];
+  }
+  if (/ovulasi/i.test(phaseText)) {
+    return [
+      ['icon-target', 'Presentasi ide'],
+      ['icon-journal', 'Diskusi kolaboratif'],
+      ['icon-todo', 'Kerjakan prioritas'],
+      ['icon-habit', 'Aktivitas outdoor'],
+      ['icon-learning', 'Review materi'],
+      ['icon-emosi', 'Catat mood positif'],
+      ['icon-glass', 'Jaga hidrasi']
+    ];
+  }
+  if (/luteal/i.test(phaseText)) {
+    return [
+      ['icon-todo', 'Pecah tugas kecil'],
+      ['icon-moon', 'Tidur cukup'],
+      ['icon-glass', 'Minum air putih'],
+      ['icon-journal', 'Rapikan pikiran'],
+      ['icon-habit', 'Olahraga ringan'],
+      ['icon-learning', 'Belajar bertahap'],
+      ['icon-clock', 'Ambil jeda pendek']
+    ];
+  }
+  return [
+    ['icon-siklus', 'Isi data siklus'],
+    ['icon-journal', 'Catat gejala'],
+    ['icon-glass', 'Minum air putih'],
+    ['icon-moon', 'Pantau istirahat'],
+    ['icon-emosi', 'Catat mood']
+  ];
+}
+
+function renderDashboardMensRecommendations(phaseText) {
+  const el = document.querySelector('#page-dashboard .dashboard-mens-recommendations');
+  if (!el) return;
+  el.innerHTML = getDashboardMensRecommendations(phaseText).map(([icon, label]) => (
+    `<span><svg width="12" height="12"><use href="#${icon}"/></svg>${escapeHTML(label)}</span>`
+  )).join('');
+}
+
+function renderDashboardMenstruasi() {
+  const ring = document.getElementById('dash-mens-ring');
+  const stats = getMensStats();
+
+  if (!stats) {
+    if (ring) {
+      ring.style.setProperty('--value', 0);
+      ring.setAttribute('aria-label', 'Progress siklus belum tersedia');
+    }
+    setText('dash-mens-ring-label', '0%');
+    setText('dash-mens-phase', 'Belum ada data');
+    setText('dash-mens-day', 'Tambahkan siklus pertama');
+    setText('dash-mens-insight', 'Data siklus akan membantu Trackify memberi perkiraan yang lebih personal.');
+    setText('dash-mens-next', 'Belum tersedia');
+    setText('dash-mens-next-date', 'Isi data siklus dulu');
+    renderDashboardMensRecommendations('');
+    return;
+  }
+
+  const cyclePercent = Math.max(0, Math.min(100, Math.round((stats.dayInCycle / Math.max(1, stats.avgCycle)) * 100)));
+  const rawPhase = stripDashboardMarkup(stats.phase);
+  const phaseText = /[A-Za-z]/.test(rawPhase) ? rawPhase : 'Fase belum tersedia';
+  const phaseName = phaseText.replace(/\s*\(hari ke-\d+\)\s*/i, '').trim();
+  const daysToNext = diffDays(today(), stats.nextPeriod);
+  const nextLabel = daysToNext > 0 ? `${daysToNext} hari lagi` : daysToNext === 0 ? 'Hari ini' : 'Perlu update data';
+
+  if (ring) {
+    ring.style.setProperty('--value', cyclePercent);
+    ring.setAttribute('aria-label', `Progress siklus ${cyclePercent} persen`);
+  }
+  setText('dash-mens-ring-label', `${cyclePercent}%`);
+  setText('dash-mens-phase', phaseName);
+  setText('dash-mens-day', `Hari ke-${Math.max(1, stats.dayInCycle)} dari ${stats.avgCycle} hari`);
+  setText('dash-mens-insight', getDashboardMensInsight(phaseName));
+  renderDashboardMensRecommendations(phaseName);
+  setText('dash-mens-next', nextLabel);
+  setText('dash-mens-next-date', fmtDateID(stats.nextPeriod));
+}
+
+function renderDashboardHeatmap() {
+  const el = document.getElementById('dash-heatmap-grid');
+  if (!el) return;
+
+  const anchorDate = addDashboardDays(new Date(), dashboardHeatmapOffset);
+  const anchorWeekday = (anchorDate.getDay() + 6) % 7;
+  const gridEndDate = addDashboardDays(anchorDate, 6 - anchorWeekday);
+  const gridStartDate = addDashboardDays(gridEndDate, -(DASHBOARD_HEATMAP_WEEKS * DASHBOARD_HEATMAP_ROWS - 1));
+  const weekdayLabels = ['Sen', '', 'Rab', '', 'Jum', '', 'Min'];
+  const range = document.getElementById('dash-heatmap-range');
+  if (range) range.textContent = formatDashboardHeatmapRange(gridStartDate, anchorDate);
+  const nextBtn = document.getElementById('dash-heatmap-next');
+  if (nextBtn) {
+    const isDisabled = dashboardHeatmapOffset >= 0;
+    nextBtn.toggleAttribute('disabled', isDisabled);
+    nextBtn.setAttribute('aria-disabled', String(isDisabled));
+  }
+
+  const weekStarts = Array.from({ length: DASHBOARD_HEATMAP_WEEKS }, (_, weekIndex) =>
+    addDashboardDays(gridStartDate, weekIndex * DASHBOARD_HEATMAP_ROWS)
+  );
+
+  const monthLabels = weekStarts.map((date, index) => {
+    const prev = index ? weekStarts[index - 1] : null;
+    return !prev || date.getMonth() !== prev.getMonth()
+      ? date.toLocaleDateString('id-ID', { month: 'short' })
+      : '';
+  });
+
+  const cells = weekStarts.flatMap((weekStart, columnIndex) =>
+    Array.from({ length: DASHBOARD_HEATMAP_ROWS }, (_, rowIndex) => {
+      const date = addDashboardDays(weekStart, rowIndex);
+      const dateStr = dateToISO(date);
+
+      if (dateStr > today()) {
+        return `<span class="dashboard-heatmap__cell dashboard-heatmap__cell--blank"
+          aria-hidden="true"
+          style="grid-column:${columnIndex + 1};grid-row:${rowIndex + 1}"></span>`;
+      }
+
+      const stats = habitCompletionForDate(dateStr);
+      const level = stats.percent >= 80 ? 4 : stats.percent >= 55 ? 3 : stats.percent >= 25 ? 2 : stats.percent > 0 ? 1 : 0;
+
+      return `<span class="dashboard-heatmap__cell ${dateStr === today() ? 'is-today' : ''}"
+        data-level="${level}"
+        title="${fmtDateID(dateStr)} - ${stats.done}/${stats.total} habit"
+        aria-label="${fmtDateID(dateStr)} - ${stats.done}/${stats.total} habit"
+        style="grid-column:${columnIndex + 1};grid-row:${rowIndex + 1}"></span>`;
+    })
+  ).join('');
+
+  el.innerHTML = `
+    <div class="dashboard-heatmap__months" aria-hidden="true" style="--heatmap-columns:${DASHBOARD_HEATMAP_WEEKS}">
+      ${monthLabels.map(label => `<span>${label}</span>`).join('')}
+    </div>
+    <div class="dashboard-heatmap__days" aria-hidden="true">
+      ${weekdayLabels.map(day => `<span>${day}</span>`).join('')}
+    </div>
+    <div class="dashboard-heatmap__cells" style="--heatmap-columns:${DASHBOARD_HEATMAP_WEEKS}">
+      ${cells}
+    </div>`;
+}
+
+function renderDashboardMiniCalendar() {
+  const el = document.getElementById('dash-mini-calendar');
+  if (!el) return;
+
+  const now = new Date();
+  now.setDate(1);
+  now.setMonth(now.getMonth() + dashboardMiniCalendarOffset);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const title = document.getElementById('dash-mini-calendar-title');
+  if (title) title.textContent = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+  const first = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (first.getDay() + 6) % 7;
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push('<span class="dashboard-mini-calendar__blank"></span>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const hasTodo = state.todos.some(t => t.dueDate === ds);
+    const hasTarget = state.targets.some(t => t.deadline === ds);
+    const habitStats = habitCompletionForDate(ds);
+    cells.push(`<span class="dashboard-mini-calendar__day ${ds === today() ? 'is-today' : ''} ${hasTodo ? 'has-task' : ''} ${hasTarget ? 'has-target' : ''} ${habitStats.done ? 'has-habit' : ''}">
+      <span>${day}</span>
+    </span>`);
+  }
+
+  el.innerHTML = `
+    <div class="dashboard-mini-calendar__weekdays" aria-hidden="true">
+      ${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(d => `<span>${d}</span>`).join('')}
+    </div>
+    <div class="dashboard-mini-calendar__grid">${cells.join('')}</div>`;
+}
+
+function renderDashboardFocusBars() {
+  const el = document.getElementById('dash-focus-bars');
+  if (!el) return;
+
+  const days = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (7 - i));
+    const ds = d.toISOString().slice(0, 10);
+    const minutes = state.learnings
+      .filter(l => l.date === ds)
+      .reduce((sum, l) => sum + (parseInt(l.duration, 10) || 0), 0);
+    return { date: ds, minutes };
+  });
+  const max = Math.max(60, ...days.map(d => d.minutes));
+  el.innerHTML = days.map(({ date, minutes }) => {
+    const height = Math.max(8, Math.round(minutes / max * 100));
+    const label = new Date(date + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit' });
+    return `<div class="dashboard-focus-bars__item" title="${fmtDateID(date)} - ${formatDashboardMinutes(minutes)}">
+      <span style="--height:${height}%"></span>
+      <small>${label}</small>
+    </div>`;
+  }).join('');
+}
+
+function updateDashboard() {
+  const td = today();
+  const todayHabit = habitCompletionForDate(td);
+  const doneTgt = state.targets.filter(t => t.status === 'done').length;
+  const targetPercent = state.targets.length ? Math.round(doneTgt / state.targets.length * 100) : 0;
+  const doneTodos = state.todos.filter(t => t.done).length;
+  const todoPercent = state.todos.length ? Math.round(doneTodos / state.todos.length * 100) : 0;
+  const focusMinutes = getTodayFocusMinutes();
+  const focusLabel = formatDashboardMinutes(focusMinutes);
+  const moodLabel = getTodayMoodLabel();
+
+  setText('dash-streak-now', `${state.streak} hari`);
+  setText('dash-streak-side', state.streak);
+  setText('dash-hero-habit', `${todayHabit.done}/${todayHabit.total}`);
+  setText('d-habit', `${todayHabit.done}/${todayHabit.total}`);
+  setText('dash-focus-time', focusLabel);
+  setText('dash-focus-time-card', focusLabel);
+  setText('dash-focus-time-total', `${focusLabel} total`);
+  setText('dash-mood', moodLabel);
+  setText('dash-mood-card', moodLabel);
+  setText('dash-target-progress', `${targetPercent}%`);
+  setText('d-target', `${doneTgt}/${state.targets.length} selesai`);
+  setText('d-todo', `${doneTodos}/${state.todos.length}`);
+  setText('dash-habit-note', `${todayHabit.percent}% hari ini`);
+  setText('dash-todo-note', state.todos.length ? `${todoPercent}% selesai` : 'Belum ada tugas');
+  setText('dash-progress-percent', `${todayHabit.percent}%`);
+  setText('dash-progress-copy', `${todayHabit.done}/${todayHabit.total} kebiasaan`);
+
+  const qaSub = document.getElementById('qa-streak-sub');
+  if (qaSub) qaSub.textContent = `${state.streak} hari streak`;
+
+  [
+    ['dash-habit-progress-fill', todayHabit.percent],
+    ['dash-target-progress-fill', targetPercent],
+    ['dash-todo-progress-fill', todoPercent],
+    ['dash-focus-progress-fill', Math.min(100, Math.round(focusMinutes / 180 * 100))],
+    ['dash-mood-progress-fill', moodLabel === 'Belum' ? 0 : 100],
+  ].forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.width = `${Math.max(0, Math.min(100, value))}%`;
+  });
+
+  const ring = document.getElementById('dash-progress-ring');
+  if (ring) ring.style.setProperty('--value', todayHabit.percent);
+
+  const hp = document.getElementById('d-habit-progress');
+  if (hp) {
+    if (!state.habits.length) {
+      hp.innerHTML = dashboardEmpty('icon-habit', 'Belum ada habit', 'Tambahkan kebiasaan pertama untuk mulai melacak progres.');
+    } else {
+      hp.innerHTML = state.habits.slice(0, 6).map((h, hi) => {
+        const v = state.habitData[`${td}_${hi}`] || 'none';
+        const status = v === 'done' ? 'done' : v === 'skip' ? 'skip' : 'pending';
+        const icon = status === 'done' ? 'icon-check-circle' : status === 'skip' ? 'icon-x' : 'icon-clock';
+        const label = status === 'done' ? 'Selesai' : status === 'skip' ? 'Dilewati' : 'Belum';
+        return `<div class="dashboard-habit-row dashboard-habit-row--${status}">
+          <span class="dashboard-habit-row__icon" aria-hidden="true"><svg width="16" height="16"><use href="#${icon}"/></svg></span>
+          <span class="dashboard-habit-row__name">${escapeHTML(h)}</span>
+          <span class="dashboard-habit-row__meta">${label}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  const tp = document.getElementById('d-todo-preview');
+  if (tp) {
+    if (!state.todos.length) {
+      tp.innerHTML = dashboardEmpty('icon-todo', 'Belum ada tugas', 'Tambahkan tugas pertama agar hari ini lebih terarah.');
+    } else {
+      const todayTodos = state.todos.filter(t => t.dueDate === td);
+      const list = (todayTodos.length ? todayTodos : state.todos).slice(0, 4);
+      tp.innerHTML = list.map(t => {
+        const category = t.category || 'Task';
+        return `<div class="dashboard-task-row todo-status-${t.done ? 'done' : 'pending'}">
+          <button class="dashboard-task-check ${t.done ? 'done' : ''}"
+                  data-action="toggleTodoById(${actionArg(t.id)})"
+                  aria-label="${t.done ? 'Tandai belum selesai' : 'Tandai selesai'}: ${escapeHTML(t.text)}"
+                  aria-pressed="${t.done}">
+            ${t.done ? '<svg width="12" height="12"><use href="#icon-check-circle"/></svg>' : ''}
+          </button>
+          <span class="dashboard-task-text ${t.done ? 'done' : ''}">${escapeHTML(t.text)}</span>
+          <span class="dashboard-task-badge">${escapeHTML(category)}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  renderDashboardHeatmap();
+  renderDashboardMiniCalendar();
+  renderDashboardMenstruasi();
+  renderDashboardFocusBars();
+  renderCustomQuickActions();
+  renderDashboardCharts();
+}
+
 let _chartInstances = {};
 
 function _destroyChart(id) {
@@ -3172,27 +3780,32 @@ async function toggleMasterNotif(checkbox) {
     showToast('✓ Notifikasi dimatikan');
   }
   renderNotifSettings();
+  updateNotificationCenter();
 }
 
 async function toggleNotifType(checkbox, type) {
   await updateTypePrefs(type, { enabled: checkbox.checked });
   renderNotifSettings();
+  updateNotificationCenter();
 }
 
 async function toggleNotifDeadline(checkbox, type) {
   await updateDeadlinePrefs(type, { enabled: checkbox.checked });
   renderNotifSettings();
+  updateNotificationCenter();
 }
 
 async function updateNotifTime(input, type) {
   if (!input.value) return;
   await updateTypePrefs(type, { time: input.value });
+  updateNotificationCenter();
 }
 
 async function updateNotifAdvance(input, type) {
   const val = parseInt(input.value);
   if (isNaN(val) || val < 0) return;
   await updateDeadlinePrefs(type, { advanceDays: val });
+  updateNotificationCenter();
 }
 
 function testNotif(type) {
@@ -3200,8 +3813,220 @@ function testNotif(type) {
   showToast(ok ? '✓ Notifikasi test dikirim' : '⚠ Aktifkan notifikasi terlebih dahulu');
 }
 
+const NOTIFICATION_TYPE_ICON = {
+  habit: 'icon-habit',
+  journal: 'icon-journal',
+  mood: 'icon-emosi',
+  todo: 'icon-todo',
+  streak: 'icon-fire',
+  refleksi: 'icon-refleksi',
+  reward: 'icon-reward',
+  learning: 'icon-learning',
+  sosial: 'icon-komunikasi',
+  emosi: 'icon-emosi',
+  menstruasi: 'icon-siklus'
+};
+
+function notificationRelativeLabel(diff) {
+  if (diff < 0) return `Terlambat ${Math.abs(diff)} hari`;
+  if (diff === 0) return 'Hari ini';
+  if (diff === 1) return 'Besok';
+  return `${diff} hari lagi`;
+}
+
+function notificationSeverity(diff) {
+  if (diff < 0) return 'urgent';
+  if (diff <= 1) return 'warning';
+  return '';
+}
+
+function createNotificationItem({ icon = 'icon-bell', title, body, meta = '', severity = '', action = '' }) {
+  const actionAttrs = action ? ` role="button" tabindex="0" data-action="${action}"` : '';
+  return `<article class="notification-center-item ${severity ? `notification-center-item--${severity}` : ''}"${actionAttrs}>
+    <span class="notification-center-item__icon" aria-hidden="true"><svg width="16" height="16"><use href="#${icon}"/></svg></span>
+    <div>
+      <p class="notification-center-item__title">${escapeHTML(title)}</p>
+      <p class="notification-center-item__body">${escapeHTML(body)}</p>
+      ${meta ? `<div class="notification-center-item__meta">${escapeHTML(meta)}</div>` : ''}
+    </div>
+  </article>`;
+}
+
+function getNotificationCenterData() {
+  const td = today();
+  const alerts = [];
+
+  (state.todos || []).forEach(todo => {
+    if (todo.done || !todo.dueDate) return;
+    const diff = diffDays(td, todo.dueDate);
+    if (diff > 7 || diff < -7) return;
+    const timeText = todo.dueTime ? ` jam ${todo.dueTime}` : '';
+    alerts.push({
+      icon: 'icon-todo',
+      title: diff < 0 ? 'To-Do melewati deadline' : diff === 0 ? 'To-Do deadline hari ini' : 'To-Do mendekati deadline',
+      body: todo.text || 'Tugas tanpa judul',
+      meta: `${notificationRelativeLabel(diff)}${timeText}`,
+      severity: notificationSeverity(diff),
+      action: "showPage('todo',navBtn(3))",
+      sort: diff
+    });
+  });
+
+  (state.targets || []).forEach(target => {
+    if (target.status === 'done' || !target.deadline) return;
+    const diff = diffDays(td, target.deadline);
+    if (diff > 7 || diff < -7) return;
+    alerts.push({
+      icon: 'icon-target',
+      title: diff < 0 ? 'Target melewati deadline' : diff === 0 ? 'Target deadline hari ini' : 'Target mendekati deadline',
+      body: target.name || 'Target tanpa judul',
+      meta: notificationRelativeLabel(diff),
+      severity: notificationSeverity(diff),
+      action: "showPage('target',navBtn(1))",
+      sort: diff
+    });
+  });
+
+  const totalHabits = state.habits?.length || 0;
+  if (totalHabits) {
+    const doneHabits = state.habits.filter((_, hi) => state.habitData[`${td}_${hi}`] === 'done').length;
+    const remaining = totalHabits - doneHabits;
+    if (remaining > 0) {
+      alerts.push({
+        icon: 'icon-habit',
+        title: 'Habit belum selesai',
+        body: `${remaining} dari ${totalHabits} habit hari ini belum dicentang.`,
+        meta: 'Check habit harian',
+        severity: 'success',
+        action: "showPage('habit',navBtn(2))",
+        sort: 0.2
+      });
+    }
+  }
+
+  const mensStats = getMensStats();
+  if (mensStats?.nextPeriod) {
+    const diff = diffDays(td, mensStats.nextPeriod);
+    if (diff >= 0 && diff <= 5) {
+      alerts.push({
+        icon: 'icon-siklus',
+        title: diff === 0 ? 'Prediksi menstruasi hari ini' : 'Prediksi menstruasi mendekat',
+        body: 'Siapkan catatan siklus dan perhatikan kondisi tubuh.',
+        meta: `${notificationRelativeLabel(diff)} - ${fmtDateID(mensStats.nextPeriod)}`,
+        severity: diff <= 1 ? 'warning' : '',
+        action: "showPage('menstruasi',this)",
+        sort: diff + 0.4
+      });
+    }
+  }
+
+  alerts.sort((a, b) => a.sort - b.sort);
+
+  let prefs = null;
+  try { prefs = getPrefs(); } catch { prefs = null; }
+  const scheduled = [];
+  if (prefs?.enabled && prefs?.types) {
+    Object.entries(prefs.types).forEach(([key, item]) => {
+      if (!item?.enabled) return;
+      scheduled.push({
+        icon: NOTIFICATION_TYPE_ICON[key] || 'icon-bell',
+        title: item.label || key,
+        body: item.body || 'Pengingat aktif.',
+        meta: `Setiap hari ${item.time || '--:--'}`,
+        action: "showPage('settings',this)",
+        sort: item.time || '99:99'
+      });
+    });
+    scheduled.sort((a, b) => String(a.sort).localeCompare(String(b.sort)));
+  }
+
+  let history = [];
+  try { history = getNotificationHistorySync().slice(0, 6); } catch { history = []; }
+
+  return { alerts, scheduled, history };
+}
+
+function renderNotificationCenter() {
+  const body = document.getElementById('notification-center-body');
+  if (!body) return;
+  const { alerts, scheduled, history } = getNotificationCenterData();
+
+  const alertsHTML = alerts.length
+    ? `<div class="notification-center-list">${alerts.map(createNotificationItem).join('')}</div>`
+    : `<div class="notification-center-empty">Belum ada reminder mendesak. Deadline, habit harian, dan prediksi siklus akan muncul di sini.</div>`;
+
+  const scheduledHTML = scheduled.length
+    ? `<div class="notification-center-list">${scheduled.slice(0, 8).map(createNotificationItem).join('')}</div>`
+    : `<div class="notification-center-empty">Belum ada pengingat aktif. Aktifkan di halaman Settings.</div>`;
+
+  const historyHTML = history.length
+    ? `<div class="notification-center-list">${history.map(item => createNotificationItem({
+        icon: 'icon-bell',
+        title: String(item.title || '').replace(/^Trackify\s*[—-]\s*/i, '') || 'Notifikasi',
+        body: item.body || '',
+        meta: item.time ? new Date(item.time).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
+      })).join('')}</div>`
+    : `<div class="notification-center-empty">Riwayat notifikasi terkirim masih kosong.</div>`;
+
+  body.innerHTML = `
+    <section class="notification-center-section">
+      <h3 class="notification-center-section-title"><svg width="13" height="13"><use href="#icon-lightning"/></svg>Butuh Perhatian</h3>
+      ${alertsHTML}
+    </section>
+    <section class="notification-center-section">
+      <h3 class="notification-center-section-title"><svg width="13" height="13"><use href="#icon-clock"/></svg>Reminder Aktif</h3>
+      ${scheduledHTML}
+    </section>
+    <section class="notification-center-section">
+      <h3 class="notification-center-section-title"><svg width="13" height="13"><use href="#icon-bell"/></svg>Riwayat Terbaru</h3>
+      ${historyHTML}
+    </section>
+    <div class="notification-center-footer">
+      <button class="btn btn-sm" data-action="showPage('settings',this)"><svg width="12" height="12"><use href="#icon-settings"/></svg>Settings</button>
+      <button class="btn btn-sm" data-action="clearNotifHistoryUI()"><svg width="12" height="12"><use href="#icon-trash"/></svg>Hapus Riwayat</button>
+    </div>
+  `;
+}
+
+function updateNotificationCenterBadge() {
+  const { alerts } = getNotificationCenterData();
+  const count = alerts.filter(item => item.severity === 'urgent' || item.severity === 'warning' || item.icon === 'icon-habit').length;
+  ['notification-badge-mobile', 'notification-badge-desktop'].forEach(id => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    badge.hidden = count <= 0;
+    badge.textContent = count > 9 ? '9+' : String(count);
+  });
+}
+
+function updateNotificationCenter() {
+  updateNotificationCenterBadge();
+  const panel = document.getElementById('notification-center-panel');
+  if (panel?.classList.contains('show')) renderNotificationCenter();
+}
+
+function setNotificationCenterOpen(isOpen) {
+  const panel = document.getElementById('notification-center-panel');
+  if (!panel) return;
+  panel.classList.toggle('show', isOpen);
+  panel.setAttribute('aria-hidden', String(!isOpen));
+  document.querySelectorAll('.notification-trigger-btn').forEach(btn => {
+    btn.setAttribute('aria-expanded', String(isOpen));
+  });
+  if (isOpen) renderNotificationCenter();
+}
+
+function toggleNotificationCenter() {
+  const panel = document.getElementById('notification-center-panel');
+  setNotificationCenterOpen(!panel?.classList.contains('show'));
+}
+
+function closeNotificationCenter() {
+  setNotificationCenterOpen(false);
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeSidebar(); closeRewardModal(); closeContextMenu(); closeSearch(); }
+  if (e.key === 'Escape') { closeSidebar(); closeRewardModal(); closeContextMenu(); closeSearch(); closeNotificationCenter(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
 });
 
@@ -3210,7 +4035,12 @@ document.addEventListener('keydown', e => {
    ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
-  initApp();
+  try {
+    initApp();
+  } catch (err) {
+    console.error('[Trackify] initApp error:', err);
+    finishInitialLoad();
+  }
 });
 
 /* ============================================================
@@ -3225,6 +4055,10 @@ Object.assign(window, {
   fpChip,
   showPage, toggleTheme, toggleSidebar, closeSidebar, navBtn,
   quickJournal, quickHabit, quickTodo, quickLearning, quickEmosi, quickTarget,
+  openQuickPage,
+  openQuickActionModal, closeQuickActionModal, saveQuickAction, removeQuickAction,
+  moveDashboardHeatmap, resetDashboardHeatmap, moveDashboardMiniCalendar,
+  toggleNotificationCenter, closeNotificationCenter,
 
   // Target
   addTarget, delTarget, toggleTargetStatus,
@@ -3386,6 +4220,8 @@ const _ACTION_MAP = {
   'toggleSidebar()':    () => toggleSidebar(),
   'closeSidebar()':     () => closeSidebar(),
   'toggleTheme()':      () => toggleTheme(),
+  'toggleNotificationCenter()': () => toggleNotificationCenter(),
+  'closeNotificationCenter()':  () => closeNotificationCenter(),
   'quickJournal()':     () => quickJournal(),
   'quickHabit()':       () => quickHabit(),
   'quickTodo()':        () => quickTodo(),
@@ -3405,6 +4241,10 @@ const _ACTION_MAP = {
   'claimDailyStreak()': () => claimDailyStreak(),
   'exportData()':       () => exportData(),
   'resetAllData()':     () => resetAllData(),
+  'clearNotifHistoryUI()': async () => {
+    await clearNotifHistoryUI();
+    updateNotificationCenter();
+  },
   'event.stopPropagation()': (_, e) => e && e.stopPropagation(),
   'toggleFilterPanel(this)': (el) => toggleFilterPanel(el),
 
@@ -3517,6 +4357,15 @@ function runDataAction(el, e) {
 document.addEventListener('click', function(e) {
   runDataAction(e.target.closest('[data-action]'), e);
 }, true); // capture phase
+
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const actionEl = e.target.closest?.('[data-action][role="button"]');
+  if (!actionEl) return;
+  e.preventDefault();
+  runDataAction(actionEl, e);
+});
+
 // oninput untuk search
 document.addEventListener('input', function(e) {
   if (e.target.getAttribute('data-oninput') === 'runSearch') {

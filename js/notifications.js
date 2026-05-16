@@ -241,6 +241,10 @@ function loadHistorySync() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
 }
 
+export function getNotificationHistorySync() {
+  return loadHistorySync();
+}
+
 /**
  * Tambahkan satu entri ke riwayat notifikasi.
  */

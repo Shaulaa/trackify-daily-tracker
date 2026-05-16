@@ -10,11 +10,11 @@
   <meta name="apple-mobile-web-app-title" content="Trackify">
   <title>Trackify - Personal Dashboard</title>
   <link rel="manifest" href="./manifest.json">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="./img/favicon.png">
   <link rel="shortcut icon" href="./img/favicon.png">
   <link rel="apple-touch-icon" href="./img/favicon.png">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body class="app-booting">
@@ -280,12 +280,24 @@
   <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </symbol>
+  <symbol id="icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>
+  </symbol>
   <symbol id="icon-droplet-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 2C8 2 5 6.5 5 10.5a7 7 0 0014 0C19 6.5 16 2 12 2z"/>
   </symbol>
   <symbol id="icon-droplet-md" viewBox="0 0 24 24" fill="currentColor" stroke="none">
     <path d="M12 2C8 2 5 6.5 5 10.5a7 7 0 0014 0C19 6.5 16 2 12 2z" opacity="0.85"/>
     <path d="M16 6C14 4 12 2 12 2C9 5 7 8 7 10.5a5 5 0 006 4.9V7.5l1.5 2.5L16 6z" fill="white" opacity="0.25"/>
+  </symbol>
+  <symbol id="icon-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 3h10l-1.2 17H8.2L7 3z"/>
+    <path d="M8 8h8"/>
+    <path d="M8.8 13.5c1.1-.7 2.1-.7 3.2 0 1.1.7 2.1.7 3.2 0"/>
+    <path d="M9 20h6"/>
   </symbol>
   <symbol id="icon-droplet-lg" viewBox="0 0 28 24" fill="currentColor" stroke="none">
     <path d="M7 2C3.5 6 1 10 1 13.5a6 6 0 0012 0C13 10 10.5 6 7 2z" opacity="0.9"/>
@@ -518,10 +530,43 @@
   </nav>
 
   <div class="sidebar-footer">
-    <div class="avatar sidebar-footer-logo" aria-hidden="true"><img class="theme-logo-image" src="./img/logo_trackify_darkmodet.png" data-light-src="./img/logo-trackify_lightmode.png" data-dark-src="./img/logo_trackify_darkmodet.png" width="42" height="42" alt="Trackify logo"></div>
-    <div>
-      <div class="sidebar-footer-copy-title">Personal Space</div>
-      <div class="sidebar-footer-copy-version">Versi 2.5.1</div>
+    <div class="auth-widget-anchor sidebar-profile-anchor">
+      <button id="auth-trigger-btn" data-action="toggleAuthDropdown()"
+        aria-label="Menu akun" aria-expanded="false"
+        class="auth-trigger-btn sidebar-profile-btn">
+        <span id="auth-trigger-icon" class="auth-trigger-icon sidebar-profile-icon"><img class="theme-logo-image" src="./img/logo_trackify_darkmodet.png" data-light-src="./img/logo-trackify_lightmode.png" data-dark-src="./img/logo_trackify_darkmodet.png" width="34" height="34" alt="Trackify logo"></span>
+        <span class="sidebar-profile-copy">
+          <span id="auth-trigger-label" class="auth-trigger-label sidebar-footer-copy-title">Personal Space</span>
+          <span class="sidebar-footer-copy-version">Versi 2.5.1</span>
+        </span>
+        <span class="auth-trigger-caret"><svg width="12" height="12"><use href="#icon-chevron-down"/></svg></span>
+      </button>
+
+      <div id="auth-dropdown" class="auth-dropdown auth-dropdown--sidebar">
+        <div id="auth-drop-loggedout">
+          <div class="auth-drop-intro">
+            <div class="auth-drop-logo"><img class="theme-logo-image" src="./img/logo_trackify_darkmodet.png" data-light-src="./img/logo-trackify_lightmode.png" data-dark-src="./img/logo_trackify_darkmodet.png" width="44" height="44" alt="Trackify logo"></div>
+            <div class="auth-drop-title">Trackify</div>
+            <div class="auth-drop-subtitle">Login untuk menyimpan data ke cloud</div>
+          </div>
+          <button data-action="if(window.handleLogin){handleLogin()}else{document.addEventListener('trackify-ready',function(){handleLogin()},{once:true})}" class="auth-google-btn">
+            <svg width="16" height="16"><use href="#icon-check-circle"/></svg>Login dengan Google
+          </button>
+        </div>
+
+        <div id="auth-drop-loggedin" class="auth-drop-loggedin">
+          <div class="auth-drop-user">
+            <img id="auth-drop-avatar" src="" width="34" height="34" class="auth-drop-avatar">
+            <div class="auth-drop-usercopy">
+              <div id="auth-drop-name" class="auth-drop-name"></div>
+              <div id="auth-drop-email" class="auth-drop-email"></div>
+            </div>
+          </div>
+          <button data-action="if(window.handleLogout)handleLogout()" class="auth-logout-btn">
+            <svg width="13" height="13"><use href="#icon-trash"/></svg>Logout
+          </button>
+        </div>
+      </div>
     </div>
     <button class="theme-toggle" data-action="toggleTheme()" id="theme-btn"
             aria-label="Ganti ke Mode Terang" title="Ganti tema"><svg width="16" height="16"><use href="#icon-moon"/></svg></button>
@@ -550,6 +595,10 @@
   <div class="topbar-actions">
     <button data-action="openSearch()" aria-label="Cari" class="topbar-icon-btn">
       <svg width="18" height="18"><use href="#icon-search"/></svg>
+    </button>
+    <button data-action="toggleNotificationCenter()" aria-label="Buka notifikasi" aria-expanded="false" aria-controls="notification-center-panel" class="topbar-icon-btn notification-trigger-btn" id="notification-trigger-mobile">
+      <svg width="18" height="18"><use href="#icon-bell"/></svg>
+      <span class="notification-badge" id="notification-badge-mobile" hidden>0</span>
     </button>
 
     <!-- Belum login -->
@@ -662,6 +711,24 @@
             <p class="dashboard-hero__date" id="dash-date-sub" aria-live="polite"></p>
             <p class="dashboard-hero__greeting" id="dash-greeting-text"></p>
             <p class="dashboard-hero__encouragement" id="dash-encouragement-text"></p>
+            <div class="dashboard-hero__stats" aria-label="Ringkasan hari ini">
+              <div class="dashboard-stat-pill dashboard-stat-pill--fire">
+                <span class="dashboard-stat-pill__icon" aria-hidden="true"><svg width="18" height="18"><use href="#icon-fire"/></svg></span>
+                <span><span class="dashboard-stat-pill__label">Streak Saat Ini</span><strong id="dash-streak-now">0 hari</strong></span>
+              </div>
+              <div class="dashboard-stat-pill dashboard-stat-pill--habit">
+                <span class="dashboard-stat-pill__icon" aria-hidden="true"><svg width="18" height="18"><use href="#icon-check-circle"/></svg></span>
+                <span><span class="dashboard-stat-pill__label">Habit Selesai</span><strong id="dash-hero-habit">0/0</strong></span>
+              </div>
+              <div class="dashboard-stat-pill dashboard-stat-pill--focus">
+                <span class="dashboard-stat-pill__icon" aria-hidden="true"><svg width="18" height="18"><use href="#icon-clock"/></svg></span>
+                <span><span class="dashboard-stat-pill__label">Focus Time</span><strong id="dash-focus-time">0m</strong></span>
+              </div>
+              <div class="dashboard-stat-pill dashboard-stat-pill--mood">
+                <span class="dashboard-stat-pill__icon" aria-hidden="true"><svg width="18" height="18"><use href="#icon-emosi"/></svg></span>
+                <span><span class="dashboard-stat-pill__label">Mood Hari Ini</span><strong id="dash-mood">Belum</strong></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -675,172 +742,243 @@
           data-dark-src="data:image/webp;base64,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"
           alt="" loading="eager" decoding="async" fetchpriority="high">
       </div>
+      <aside class="dashboard-hero-quote-card" aria-label="Kutipan harian">
+        <span class="dashboard-hero-quote-card__mark" aria-hidden="true">❝</span>
+        <p class="dashboard-quote-card__text">Small progress every day leads to big results.</p>
+        <p class="dashboard-quote-card__author">Trackify Notes</p>
+        <span class="dashboard-hero-quote-card__spark dashboard-hero-quote-card__spark--one" aria-hidden="true"></span>
+        <span class="dashboard-hero-quote-card__spark dashboard-hero-quote-card__spark--two" aria-hidden="true"></span>
+        <span class="dashboard-hero-quote-card__spark dashboard-hero-quote-card__spark--three" aria-hidden="true"></span>
+      </aside>
     </section>
 
 
 
     <!-- Quick Actions -->
-    <section class="card section-space-16" aria-label="Aksi Cepat">
-      <div class="card-title"><svg width="15" height="15" class="icon-yellow"><use href="#icon-lightning"/></svg>Quick Actions</div>
+    <section class="card dashboard-actions-card section-space-16" aria-label="Aksi Cepat">
+      <div class="card-title dashboard-card-title"><svg width="15" height="15" class="icon-yellow"><use href="#icon-lightning"/></svg>Quick Actions</div>
       <div class="quick-actions-grid" id="quick-actions-grid">
         <button class="quick-action-btn" data-action="quickJournal()" aria-label="Tulis jurnal hari ini">
           <div class="qa-icon qa-icon--violet" aria-hidden="true"><svg width="22" height="22"><use href="#icon-journal"/></svg></div>
           <div class="qa-label">Tulis Jurnal</div>
-          <div class="qa-sub">Refleksikan hari ini</div>
         </button>
         <button class="quick-action-btn" data-action="quickHabit()" aria-label="Update habit hari ini">
           <div class="qa-icon qa-icon--green" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-habit"/></svg></div>
           <div class="qa-label">Check Habit</div>
-          <div class="qa-sub">Update kebiasaan</div>
         </button>
         <button class="quick-action-btn" data-action="quickTodo()" aria-label="Tambah tugas baru">
           <div class="qa-icon qa-icon--blue" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-task"/></svg></div>
           <div class="qa-label">Tambah Tugas</div>
-          <div class="qa-sub">To-do baru</div>
         </button>
         <button class="quick-action-btn" data-action="quickLearning()" aria-label="Catat sesi belajar">
           <div class="qa-icon qa-icon--pink" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-belajar"/></svg></div>
           <div class="qa-label">Catat Belajar</div>
-          <div class="qa-sub">Apa yang dipelajari?</div>
         </button>
-        <button class="quick-action-btn" data-action="quickEmosi()" aria-label="Catat kondisi emosi">
-          <div class="qa-icon qa-icon--amber" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-emosi"/></svg></div>
-          <div class="qa-label">Catat Emosi</div>
-          <div class="qa-sub">Bagaimana perasaanmu?</div>
-        </button>
-        <button class="quick-action-btn" data-action="quickTarget()" aria-label="Tambah target baru">
-          <div class="qa-icon qa-icon--violet" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-target"/></svg></div>
-          <div class="qa-label">Tambah Target</div>
-          <div class="qa-sub">Goal baru</div>
+        <button class="quick-action-btn" data-action="quickEmosi()" aria-label="Catat mood hari ini">
+          <div class="qa-icon qa-icon--amber" aria-hidden="true"><svg width="22" height="22"><use href="#icon-emosi"/></svg></div>
+          <div class="qa-label">Catat Mood</div>
         </button>
         <button class="quick-action-btn" data-action="showPage('reward', navBtn(4))" aria-label="Lihat reward dan streak">
           <div class="qa-icon qa-icon--amber-strong" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-reward"/></svg></div>
           <div class="qa-label">Lihat Reward</div>
-          <div class="qa-sub" id="qa-streak-sub">0 hari streak</div>
         </button>
         <button class="quick-action-btn" data-action="showPage('reflection', navBtn(7))" aria-label="Tulis refleksi mingguan">
           <div class="qa-icon qa-icon--lilac" aria-hidden="true"><svg width="22" height="22"><use href="#icon-qa-refleksi"/></svg></div>
           <div class="qa-label">Refleksi</div>
-          <div class="qa-sub">Evaluasi minggu ini</div>
+        </button>
+        <button class="quick-action-btn quick-action-btn--more" data-action="openQuickActionModal()" aria-label="Tambah quick action">
+          <div class="qa-icon qa-icon--neutral" aria-hidden="true"><svg width="22" height="22"><use href="#icon-plus"/></svg></div>
+          <div class="qa-label">Tambah</div>
         </button>
       </div>
     </section>
 
-    <!-- Metrik ringkasan -->
-    <section aria-label="Ringkasan metrik" class="grid3 section-space-16">
-      <div class="metric-card cat-target" data-action="showPage('target',navBtn(1))" role="button" tabindex="0"
-           data-onenter-page="target" data-onenter-nav="1"
-           aria-label="Target Selesai - klik untuk lihat detail">
-        <div class="metric-icon cat-target" aria-hidden="true"><svg width="22" height="22"><use href="#icon-target"/></svg></div>
-        <div class="metric-val" id="d-target" aria-live="polite">0</div>
-        <div class="metric-lbl">Target Selesai</div>
-      </div>
-      <div class="metric-card cat-habit" data-action="showPage('habit',navBtn(2))" role="button" tabindex="0"
-           data-onenter-page="habit" data-onenter-nav="2"
-           aria-label="Habit Bulan Ini - klik untuk lihat detail">
-        <div class="metric-icon cat-habit" aria-hidden="true"><svg width="22" height="22"><use href="#icon-fire"/></svg></div>
-        <div class="metric-val" id="d-habit" aria-live="polite">0%</div>
-        <div class="metric-lbl">Habit Bulan Ini</div>
-      </div>
-      <div class="metric-card cat-todo" data-action="showPage('todo',navBtn(3))" role="button" tabindex="0"
-           data-onenter-page="todo" data-onenter-nav="3"
-           aria-label="To-Do Selesai - klik untuk lihat detail">
-        <div class="metric-icon cat-todo" aria-hidden="true"><svg width="22" height="22"><use href="#icon-check-circle"/></svg></div>
-        <div class="metric-val" id="d-todo" aria-live="polite">0</div>
-        <div class="metric-lbl">To-Do Selesai</div>
-      </div>
-    </section>
+    <div class="dashboard-top-grid">
+        <section class="card dashboard-menstruasi-card" aria-label="Tracker menstruasi">
+          <div class="card-title dashboard-card-title dashboard-menstruasi-title"><svg width="14" height="14"><use href="#icon-siklus"/></svg>Tracker Menstruasi</div>
+          <div class="dashboard-menstruasi-body">
+            <div class="dashboard-cycle-ring" id="dash-mens-ring" style="--value:0">
+              <span id="dash-mens-ring-label">0%</span>
+            </div>
+            <div class="dashboard-mens-phase">
+              <span>Fase Saat Ini</span>
+              <strong id="dash-mens-phase">Belum ada data</strong>
+              <small id="dash-mens-day">Tambahkan siklus pertama</small>
+            </div>
+            <div class="dashboard-mens-insight">
+              <span>Insight Hari Ini</span>
+              <p id="dash-mens-insight">Data siklus akan membantu Trackify memberi perkiraan yang lebih personal.</p>
+            </div>
+          </div>
+          <div class="dashboard-mens-next">
+            <span class="dashboard-mens-next__icon" aria-hidden="true"><svg width="17" height="17"><use href="#icon-siklus"/></svg></span>
+            <span>
+              <span>Prediksi Menstruasi</span>
+              <strong id="dash-mens-next">Belum tersedia</strong>
+              <small id="dash-mens-next-date">Isi data siklus dulu</small>
+            </span>
+          </div>
+          <div class="dashboard-mens-recommendations" aria-label="Rekomendasi untukmu">
+            <span><svg width="12" height="12"><use href="#icon-learning"/></svg>Fokus belajar</span>
+            <span><svg width="12" height="12"><use href="#icon-glass"/></svg>Minum air putih</span>
+            <span><svg width="12" height="12"><use href="#icon-habit"/></svg>Olahraga ringan</span>
+            <span><svg width="12" height="12"><use href="#icon-moon"/></svg>Tidur lebih awal</span>
+            <span><svg width="12" height="12"><use href="#icon-journal"/></svg>Catat gejala</span>
+          </div>
+          <button type="button" class="dashboard-mens-link" data-action="showPage('menstruasi',this)">
+            Lihat Kalender Siklus <svg width="13" height="13"><use href="#icon-chevron-down"/></svg>
+          </button>
+        </section>
+        <section class="card dashboard-calendar-card" aria-label="Visualisasi kalender">
+          <div class="dashboard-card-header">
+            <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-calendar"/></svg>Calendar Visualization</div>
+            <div class="dashboard-card-tools dashboard-calendar-tools">
+              <span class="dashboard-heatmap-range" id="dash-heatmap-range" aria-live="polite">Hari ini</span>
+              <div class="dashboard-card-nav dashboard-heatmap-nav">
+                <button type="button" id="dash-heatmap-prev" data-action="moveDashboardHeatmap(-7)" aria-label="Lihat periode sebelumnya">
+                  <svg width="14" height="14"><use href="#icon-chevron-down"/></svg>
+                </button>
+                <button type="button" class="dashboard-today-btn" data-action="resetDashboardHeatmap()" aria-label="Kembali ke hari ini">
+                  <svg width="13" height="13"><use href="#icon-calendar"/></svg>
+                  Hari ini
+                </button>
+                <button type="button" id="dash-heatmap-next" data-action="moveDashboardHeatmap(7)" aria-label="Lihat periode berikutnya">
+                  <svg width="14" height="14"><use href="#icon-chevron-down"/></svg>
+                </button>
+              </div>
+              <div class="dashboard-heatmap-legend" aria-hidden="true">
+                <span class="dash-legend-label">Less</span>
+                <span class="dash-legend dash-legend--1"></span>
+                <span class="dash-legend dash-legend--2"></span>
+                <span class="dash-legend dash-legend--3"></span>
+                <span class="dash-legend dash-legend--4"></span>
+                <span class="dash-legend-label">More</span>
+              </div>
+            </div>
+          </div>
+          <div id="dash-heatmap-grid" class="dashboard-heatmap" aria-live="polite"></div>
+          <div class="dashboard-calendar-note">
+            <span class="dashboard-note-icon" aria-hidden="true"><svg width="14" height="14"><use href="#icon-info"/></svg></span>
+            <span>Konsistensi adalah kunci. Terus pertahankan streak-mu.</span>
+            <button class="btn btn-sm dashboard-link-btn" data-action="showPage('habit',navBtn(2))">Lihat Statistik Lengkap <svg width="13" height="13"><use href="#icon-chevron-down"/></svg></button>
+          </div>
+        </section>
 
-    <section class="card dashboard-quote-card" aria-label="Kutipan motivasi">
-      <div class="dashboard-quote-card__content">
-        <div class="dashboard-quote-card__mark">&ldquo;</div>
-        <blockquote class="dashboard-quote-card__text">
-          Progress yang pelan tetap membawa kita maju, selama kita terus kembali ke hal-hal yang penting.
-        </blockquote>
-        <p class="dashboard-quote-card__author">Trackify Reminder</p>
-      </div>
-
-      <svg class="dashboard-quote-card__leaf dashboard-quote-card__leaf--top" viewBox="0 0 180 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <g fill="none" stroke="#8f9a79" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M24 102c32-14 51-41 55-78"/>
-          <path d="M78 48c24-6 43-23 53-41"/>
-        </g>
-        <g fill="#b8c1a3">
-          <path d="M47 83c-17-1-32-8-42-22 16-5 35 0 49 13"/>
-          <path d="M64 64c-15-4-25-14-29-30 15 0 28 10 35 24"/>
-          <path d="M87 50c19 0 34-8 44-24-17-4-36 2-49 16"/>
-          <path d="M104 31c13 1 25-4 35-15-13-4-27 0-37 9"/>
-        </g>
-      </svg>
-
-      <svg class="dashboard-quote-card__leaf dashboard-quote-card__leaf--bottom" viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <g fill="none" stroke="#7f8b69" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M120 169c-2-53-2-94 3-136"/>
-          <path d="M123 100c20-17 38-20 56-17"/>
-          <path d="M123 126c-21-11-37-12-54-6"/>
-        </g>
-        <g fill="#a5b190">
-          <path d="M129 122c23-24 47-33 73-27-8 24-30 46-67 43"/>
-          <path d="M131 83c18-19 35-26 54-22-4 18-18 36-49 35"/>
-          <path d="M116 132c-20-16-40-22-62-16 8 19 27 35 56 32"/>
-          <path d="M111 95c-17-15-31-21-49-17 5 17 18 31 45 30"/>
-        </g>
-      </svg>
-    </section>
-
-
-
-    <div class="grid2">
-      <section class="card" aria-label="Target terkini">
-        <div class="card-title">Target Terkini</div>
-        <div id="d-target-list" aria-live="polite"></div>
-      </section>
-      <section class="card" aria-label="Progress habit hari ini">
-        <div class="card-title">Progress Habit Hari Ini</div>
-        <div id="d-habit-progress" aria-live="polite"></div>
-      </section>
+        <section class="card dashboard-mini-calendar-card" aria-label="Kalender">
+          <div class="dashboard-card-header">
+            <div>
+              <div class="card-title dashboard-card-title">Kalender</div>
+              <h2 id="dash-mini-calendar-title">Bulan ini</h2>
+            </div>
+            <div class="dashboard-card-nav">
+              <button type="button" data-action="moveDashboardMiniCalendar(-1)" aria-label="Lihat bulan sebelumnya">
+                <svg width="14" height="14"><use href="#icon-chevron-down"/></svg>
+              </button>
+              <button type="button" data-action="moveDashboardMiniCalendar(1)" aria-label="Lihat bulan berikutnya">
+                <svg width="14" height="14"><use href="#icon-chevron-down"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="dash-mini-calendar" class="dashboard-mini-calendar" aria-live="polite"></div>
+          <div class="dashboard-calendar-legend" aria-hidden="true">
+            <span><i class="legend-dot legend-dot--task"></i>Tugas</span>
+            <span><i class="legend-dot legend-dot--habit"></i>Habit</span>
+            <span><i class="legend-dot legend-dot--target"></i>Target</span>
+            <span><i class="legend-dot legend-dot--event"></i>Event</span>
+          </div>
+        </section>
     </div>
 
-    <div class="grid2">
-      <section class="card" aria-label="Jurnal hari ini">
-        <div class="card-title">Jurnal Hari Ini</div>
-        <div id="d-journal-preview" aria-live="polite"></div>
-      </section>
-      <section class="card" aria-label="To-Do list">
-        <div class="card-title">To-Do List</div>
-        <div id="d-todo-preview" aria-live="polite"></div>
-      </section>
-    </div>
+    <div class="dashboard-shell">
+      <div class="dashboard-main-column">
 
-    <!-- -- GRAFIK DASHBOARD ------------------- -->
-    <div class="grid2 section-gap-16">
-      <section class="card" aria-label="Grafik habit 7 hari terakhir">
-        <div class="card-title"><svg width="14" height="14" class="icon-green"><use href="#icon-habit"/></svg>Habit 7 Hari Terakhir</div>
-        <canvas id="chart-habit-week" height="160" aria-label="Grafik habit 7 hari terakhir"></canvas>
-        <div id="chart-habit-week-empty" class="chart-empty-state">Belum ada data habit</div>
-      </section>
-      <section class="card" aria-label="Distribusi mood emosi">
-        <div class="card-title"><svg width="14" height="14" class="icon-yellow"><use href="#icon-emosi"/></svg>Distribusi Mood</div>
-        <div class="chart-donut-wrap">
-          <canvas id="chart-mood-dist" class="donut-canvas" aria-label="Grafik distribusi mood"></canvas>
+        <section aria-label="Ringkasan metrik" class="dashboard-metric-row">
+          <div class="metric-card cat-habit dashboard-metric-card" data-action="showPage('habit',navBtn(2))" role="button" tabindex="0"
+               data-onenter-page="habit" data-onenter-nav="2"
+               aria-label="Habit selesai - klik untuk lihat detail">
+            <div class="metric-icon cat-habit" aria-hidden="true"><svg width="22" height="22"><use href="#icon-check-circle"/></svg></div>
+            <div class="metric-lbl">Habit Selesai</div>
+            <div class="metric-val" id="d-habit" aria-live="polite">0/0</div>
+            <div class="dashboard-metric-note" id="dash-habit-note">Hari ini</div>
+            <div class="dashboard-mini-progress"><span id="dash-habit-progress-fill"></span></div>
+          </div>
+          <div class="metric-card cat-target dashboard-metric-card" data-action="showPage('target',navBtn(1))" role="button" tabindex="0"
+               data-onenter-page="target" data-onenter-nav="1"
+               aria-label="Target progress - klik untuk lihat detail">
+            <div class="metric-icon cat-target" aria-hidden="true"><svg width="22" height="22"><use href="#icon-target"/></svg></div>
+            <div class="metric-lbl">Target Progress</div>
+            <div class="metric-val" id="dash-target-progress" aria-live="polite">0%</div>
+            <div class="dashboard-metric-note" id="d-target">0/0 selesai</div>
+            <div class="dashboard-mini-progress dashboard-mini-progress--target"><span id="dash-target-progress-fill"></span></div>
+          </div>
+          <div class="metric-card cat-learning dashboard-metric-card" data-action="showPage('learning',this)" role="button" tabindex="0"
+               aria-label="Focus time hari ini - klik untuk lihat detail">
+            <div class="metric-icon cat-learning" aria-hidden="true"><svg width="22" height="22"><use href="#icon-clock"/></svg></div>
+            <div class="metric-lbl">Focus Time</div>
+            <div class="metric-val" id="dash-focus-time-card" aria-live="polite">0m</div>
+            <div class="dashboard-metric-note">Waktu fokus hari ini</div>
+            <div class="dashboard-mini-progress dashboard-mini-progress--focus"><span id="dash-focus-progress-fill"></span></div>
+          </div>
+          <div class="metric-card cat-todo dashboard-metric-card" data-action="showPage('todo',navBtn(3))" role="button" tabindex="0"
+               data-onenter-page="todo" data-onenter-nav="3"
+               aria-label="Task selesai - klik untuk lihat detail">
+            <div class="metric-icon cat-todo" aria-hidden="true"><svg width="22" height="22"><use href="#icon-todo"/></svg></div>
+            <div class="metric-lbl">Task Selesai</div>
+            <div class="metric-val" id="d-todo" aria-live="polite">0/0</div>
+            <div class="dashboard-metric-note" id="dash-todo-note">Semua tugas selesai?</div>
+            <div class="dashboard-mini-progress dashboard-mini-progress--todo"><span id="dash-todo-progress-fill"></span></div>
+          </div>
+          <div class="metric-card cat-mood dashboard-metric-card" data-action="showPage('emosi',this)" role="button" tabindex="0"
+               aria-label="Mood hari ini - klik untuk lihat detail">
+            <div class="metric-icon cat-mood" aria-hidden="true"><svg width="22" height="22"><use href="#icon-emosi"/></svg></div>
+            <div class="metric-lbl">Mood Hari Ini</div>
+            <div class="metric-val metric-val--text" id="dash-mood-card" aria-live="polite">Belum</div>
+            <div class="dashboard-metric-note">Mood positif</div>
+            <div class="dashboard-mini-progress dashboard-mini-progress--mood"><span id="dash-mood-progress-fill"></span></div>
+          </div>
+        </section>
+
+        <div class="dashboard-lower-grid">
+          <section class="card dashboard-list-card" aria-label="Kebiasaan hari ini">
+            <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-habit"/></svg>Kebiasaan Hari Ini</div>
+            <div id="d-habit-progress" class="dashboard-habit-list" aria-live="polite"></div>
+          </section>
+          <section class="card dashboard-focus-card" aria-label="Focus time hari ini">
+            <div class="dashboard-card-header">
+              <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-clock"/></svg>Focus Time Hari Ini</div>
+              <strong id="dash-focus-time-total">0m total</strong>
+            </div>
+            <div id="dash-focus-bars" class="dashboard-focus-bars" aria-live="polite"></div>
+          </section>
         </div>
-        <div id="chart-mood-dist-empty" class="chart-empty-state">Belum ada data emosi</div>
-      </section>
-    </div>
+      </div>
 
-    <div class="grid2 section-gap-16">
-      <section class="card" aria-label="Status target hidup">
-        <div class="card-title"><svg width="14" height="14" class="icon-purple"><use href="#icon-target"/></svg>Status Target</div>
-        <div class="chart-donut-wrap">
-          <canvas id="chart-target-status" class="donut-canvas" aria-label="Grafik status target"></canvas>
+      <aside class="dashboard-side-column" aria-label="Ringkasan tambahan">
+        <section class="card dashboard-tasks-card" aria-label="Tugas hari ini">
+          <div class="dashboard-card-header">
+            <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-todo"/></svg>Tugas Hari Ini</div>
+            <button class="dashboard-text-link" data-action="showPage('todo',navBtn(3))">Lihat semua</button>
+          </div>
+          <div id="d-todo-preview" class="dashboard-task-list" aria-live="polite"></div>
+        </section>
+
+        <div class="dashboard-side-metrics">
+          <section class="card dashboard-streak-card" aria-label="Streak hari ini">
+            <div class="card-title dashboard-card-title">Streak Hari Ini</div>
+            <div class="dashboard-side-number"><span id="dash-streak-side">0</span><svg width="30" height="30" aria-hidden="true"><use href="#icon-fire"/></svg></div>
+            <p>hari berturut-turut</p>
+            <small id="qa-streak-sub">0 hari streak</small>
+          </section>
+          <section class="card dashboard-progress-card" aria-label="Progress hari ini">
+            <div class="card-title dashboard-card-title">Progress Hari Ini</div>
+            <div class="dashboard-progress-ring" id="dash-progress-ring" style="--value:0">
+              <strong id="dash-progress-percent">0%</strong>
+            </div>
+            <p id="dash-progress-copy">0/0 kebiasaan</p>
+            <button class="dashboard-text-link" data-action="showPage('habit',navBtn(2))">Lihat detail <svg width="13" height="13"><use href="#icon-chevron-down"/></svg></button>
+          </section>
         </div>
-        <div id="chart-target-status-empty" class="chart-empty-state">Belum ada target</div>
-      </section>
-      <section class="card" aria-label="Sesi belajar 7 hari">
-        <div class="card-title"><svg width="14" height="14" class="icon-pink"><use href="#icon-learning"/></svg>Sesi Belajar 7 Hari</div>
-        <canvas id="chart-learning-week" height="160" aria-label="Grafik sesi belajar"></canvas>
-        <div id="chart-learning-week-empty" class="chart-empty-state">Belum ada sesi belajar</div>
-      </section>
+      </aside>
     </div>
   </div>
 
@@ -1916,29 +2054,6 @@
       <div class="feedback-form">
         <div>
           <label class="feedback-label">Jenis Masukan</label>
-          <style>
-            .feedback-type-btn {
-              border: 1.5px solid var(--border, #2a2d3a);
-              background: transparent;
-              color: var(--text3, #6b7280);
-              border-radius: 8px;
-              padding: 6px 14px;
-              font-size: 13px;
-              cursor: pointer;
-              transition: border-color 0.15s, color 0.15s, background 0.15s;
-            }
-            .feedback-type-btn:hover {
-              border-color: var(--accent, #6c63ff);
-              color: var(--accent, #6c63ff);
-              background: rgba(108,99,255,0.07);
-            }
-            .feedback-type-btn.active {
-              border-color: var(--accent, #6c63ff);
-              background: rgba(108,99,255,0.15);
-              color: var(--accent, #6c63ff);
-              font-weight: 600;
-            }
-          </style>
           <div class="feedback-type-group" id="feedback-type-group">
             <button class="btn feedback-type-btn active" data-type="saran" onclick="selectFeedbackType(this)">Saran</button>
             <button class="btn feedback-type-btn" data-type="bug" onclick="selectFeedbackType(this)">Laporan Bug</button>
@@ -1982,51 +2097,72 @@
   </footer>
 </main>
 
+<!-- Quick Action Modal -->
+<div id="quick-action-modal-bg" class="quick-action-modal-bg" data-action="closeQuickActionModal()" role="dialog" aria-modal="true" aria-labelledby="quick-action-modal-title" aria-hidden="true">
+  <div class="quick-action-modal" data-action="event.stopPropagation()">
+    <div class="quick-action-modal__header">
+      <div>
+        <p class="quick-action-modal__eyebrow">Quick Action</p>
+        <h2 id="quick-action-modal-title">Tambah Shortcut</h2>
+      </div>
+      <button type="button" class="quick-action-modal__close" data-action="closeQuickActionModal()" aria-label="Tutup modal quick action">
+        <svg width="18" height="18"><use href="#icon-x"/></svg>
+      </button>
+    </div>
+    <div class="quick-action-modal__body">
+      <label for="qa-custom-action">Aksi</label>
+      <select id="qa-custom-action">
+        <option value="target">Tambah Target</option>
+        <option value="habit">Check Habit</option>
+        <option value="todo">Tambah Tugas</option>
+        <option value="journal">Tulis Jurnal</option>
+        <option value="learning">Catat Belajar</option>
+        <option value="mood">Catat Mood</option>
+        <option value="reflection">Refleksi</option>
+        <option value="reward">Lihat Reward</option>
+        <option value="settings">Pengaturan</option>
+      </select>
+
+      <label for="qa-custom-label">Nama tombol</label>
+      <input id="qa-custom-label" type="text" maxlength="22" placeholder="Contoh: Target Baru">
+
+      <div class="quick-action-modal__actions">
+        <button type="button" class="btn" data-action="closeQuickActionModal()">Batal</button>
+        <button type="button" class="btn btn-primary" data-action="saveQuickAction()">
+          <svg width="14" height="14"><use href="#icon-plus"/></svg>Tambah
+        </button>
+      </div>
+
+      <div class="quick-action-modal__list" id="qa-custom-list" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast notifikasi -->
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-<!-- Desktop Auth Widget (pojok kanan atas, hanya di desktop) -->
-<div id="auth-widget-desktop" class="auth-widget-desktop">
-  <!-- Tombol utama: logo/avatar, selalu tampil -->
-  <div class="auth-widget-anchor">
-    <button id="auth-trigger-btn" data-action="toggleAuthDropdown()"
-      aria-label="Menu akun" aria-expanded="false"
-      class="auth-trigger-btn">
-      <!-- Avatar jika sudah login, ikon ? jika belum -->
-      <span id="auth-trigger-icon" class="auth-trigger-icon"><img class="theme-logo-image" src="./img/logo_trackify_darkmodet.png" data-light-src="./img/logo-trackify_lightmode.png" data-dark-src="./img/logo_trackify_darkmodet.png" width="28" height="28" alt="Trackify logo"></span>
-      <span id="auth-trigger-label" class="auth-trigger-label">Akun</span>
-      <span class="auth-trigger-caret"><svg width="12" height="12"><use href="#icon-chevron-down"/></svg></span>
-    </button>
-
-    <!-- Dropdown -->
-    <div id="auth-dropdown" class="auth-dropdown">
-      <!-- State: belum login -->
-      <div id="auth-drop-loggedout">
-        <div class="auth-drop-intro">
-          <div class="auth-drop-logo"><img class="theme-logo-image" src="./img/logo_trackify_darkmodet.png" data-light-src="./img/logo-trackify_lightmode.png" data-dark-src="./img/logo_trackify_darkmodet.png" width="44" height="44" alt="Trackify logo"></div>
-          <div class="auth-drop-title">Trackify</div>
-          <div class="auth-drop-subtitle">Login untuk menyimpan data ke cloud</div>
-        </div>
-        <button data-action="if(window.handleLogin){handleLogin()}else{document.addEventListener('trackify-ready',function(){handleLogin()},{once:true})}" class="auth-google-btn">
-          <svg width="16" height="16"><use href="#icon-check-circle"/></svg>Login dengan Google
-        </button>
+<!-- Notification Center -->
+<div id="notification-center-panel" class="notification-center-panel" role="dialog" aria-modal="false" aria-labelledby="notification-center-title" aria-hidden="true">
+  <div class="notification-center-card" data-action="event.stopPropagation()">
+    <div class="notification-center-header">
+      <div>
+        <p class="notification-center-eyebrow">Reminder Center</p>
+        <h2 id="notification-center-title">Notifikasi</h2>
       </div>
-
-      <!-- State: sudah login -->
-      <div id="auth-drop-loggedin" class="auth-drop-loggedin">
-        <div class="auth-drop-user">
-          <img id="auth-drop-avatar" src="" width="34" height="34" class="auth-drop-avatar">
-          <div class="auth-drop-usercopy">
-            <div id="auth-drop-name" class="auth-drop-name"></div>
-            <div id="auth-drop-email" class="auth-drop-email"></div>
-          </div>
-        </div>
-        <button data-action="if(window.handleLogout)handleLogout()" class="auth-logout-btn">
-          <svg width="13" height="13"><use href="#icon-trash"/></svg>Logout
-        </button>
-      </div>
+      <button type="button" class="notification-center-close" data-action="closeNotificationCenter()" aria-label="Tutup notifikasi">
+        <svg width="16" height="16"><use href="#icon-x"/></svg>
+      </button>
     </div>
+    <div id="notification-center-body" class="notification-center-body" aria-live="polite"></div>
   </div>
+</div>
+
+<!-- Desktop Notification (pojok kanan atas, hanya di desktop) -->
+<div id="auth-widget-desktop" class="auth-widget-desktop">
+  <button data-action="toggleNotificationCenter()" aria-label="Buka notifikasi" aria-expanded="false" aria-controls="notification-center-panel" class="desktop-notification-btn notification-trigger-btn" id="notification-trigger-desktop">
+    <svg width="18" height="18"><use href="#icon-bell"/></svg>
+    <span class="notification-badge" id="notification-badge-desktop" hidden>0</span>
+  </button>
 </div>
 
 <!-- ------------------------------------------
@@ -2046,8 +2182,20 @@
   </div>
 </div>
 
-<script type="module" src="./firebase.js"></script>
-<script type="module" src="./notifications.js"></script>
-<script type="module" src="./script.js"></script>
+<script type="module" src="./js/firebase.js"></script>
+<script type="module" src="./js/notifications.js"></script>
+<script type="module" src="./js/script.js"></script>
+<script>
+  window.setTimeout(function () {
+    if (document.body && document.body.classList.contains('app-booting')) {
+      console.warn('[Trackify] Initial load took too long; showing cached UI fallback.');
+      document.body.classList.remove('app-booting');
+      document.body.classList.add('app-revealing');
+      window.setTimeout(function () {
+        document.body && document.body.classList.remove('app-revealing');
+      }, 420);
+    }
+  }, 5000);
+</script>
 </body>
 </html>
