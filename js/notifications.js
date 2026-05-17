@@ -47,6 +47,7 @@ function getAuthInstance() {
 const STORAGE_KEY        = 'Trackify_notifPrefs';
 const DEADLINE_SENT_KEY  = 'Trackify_notifDeadlineSent';
 const HISTORY_KEY        = 'Trackify_notifHistory';
+const HISTORY_CLEARED_KEY = 'Trackify_notifHistoryClearedAt';
 const HISTORY_MAX        = 100;
 
 // ── Default preferences ────────────────────────────────────────
@@ -107,6 +108,26 @@ function prefsDocRef(uid) {
  */
 function historyDocRef(uid) {
   return doc(getDB(), 'notifHistory', uid);
+}
+
+function getHistoryClearedAt() {
+  try {
+    const raw = localStorage.getItem(HISTORY_CLEARED_KEY);
+    const time = Date.parse(raw || '');
+    return Number.isFinite(time) ? time : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function filterClearedHistory(history) {
+  const items = Array.isArray(history) ? history : [];
+  const clearedAt = getHistoryClearedAt();
+  if (!clearedAt) return items;
+  return items.filter(item => {
+    const time = Date.parse(item?.time || '');
+    return Number.isFinite(time) && time > clearedAt;
+  });
 }
 
 // ── Load/Save Prefs ────────────────────────────────────────────
@@ -202,7 +223,7 @@ async function loadHistory() {
       const snap = await getDoc(historyDocRef(uid));
       if (snap.exists()) {
         const data = snap.data();
-        return Array.isArray(data.items) ? data.items : [];
+        return filterClearedHistory(data.items);
       }
       return [];
     } catch (e) {
@@ -210,21 +231,22 @@ async function loadHistory() {
     }
   }
   // Fallback localStorage
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+  try { return filterClearedHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')); } catch { return []; }
 }
 
 /**
  * Save history: tulis ke Firestore DAN localStorage.
  */
 async function saveHistory(history) {
+  const cleanHistory = filterClearedHistory(history);
   // localStorage cache
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch {}
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(cleanHistory)); } catch {}
 
   const uid = currentUid();
   if (uid && getDB()) {
     try {
       await setDoc(historyDocRef(uid), {
-        items: history,
+        items: cleanHistory,
         updatedAt: serverTimestamp(),
       });
     } catch (e) {
@@ -238,7 +260,7 @@ async function saveHistory(history) {
  * Gunakan ini hanya untuk tampilkan UI — data lengkap ada di Firestore.
  */
 function loadHistorySync() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+  try { return filterClearedHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')); } catch { return []; }
 }
 
 export function getNotificationHistorySync() {
@@ -265,7 +287,11 @@ async function addToHistory(title, body, tag) {
 
 /** Hapus semua riwayat */
 export async function clearNotifHistory() {
-  try { localStorage.removeItem(HISTORY_KEY); } catch {}
+  const clearedAt = new Date().toISOString();
+  try {
+    localStorage.setItem(HISTORY_CLEARED_KEY, clearedAt);
+    localStorage.setItem(HISTORY_KEY, '[]');
+  } catch {}
   const uid = currentUid();
   if (uid && getDB()) {
     try {
@@ -674,4 +700,5 @@ function escapeHtml(str) {
 export async function clearNotifHistoryUI() {
   await clearNotifHistory();
   renderNotifSettings();
+  document.dispatchEvent(new CustomEvent('trackify-notif-history-cleared'));
 }

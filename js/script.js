@@ -3019,13 +3019,17 @@ function updateSettingsCountMens() {
  * Reset semua data ke kondisi awal.
  * Minta konfirmasi dua kali karena tidak dapat dibatalkan.
  */
-function resetAllData() {
+async function resetAllData() {
   if (!window.confirm('PERINGATAN: Seluruh data akan dihapus permanen!\n\nLanjutkan?')) return;
   if (!window.confirm('Yakin? Tindakan ini TIDAK DAPAT DIBATALKAN.')) return;
   const currentTheme = state.theme;
+  await clearNotificationCenterAll({ silent: true });
   StorageManager.clear();
   state = createDefaultState(); habitRows = [today()]; selectedCat = '';
   state.theme = currentTheme;
+  saveState();
+  setAppState(state);
+  requestFirebaseSync({ immediate: true });
   applyTheme(currentTheme); setDefaultFormDates(); renderAll(); renderDashboardDate();
   showToast('🗑️ Semua data berhasil direset');
 }
@@ -3813,6 +3817,8 @@ function testNotif(type) {
   showToast(ok ? '✓ Notifikasi test dikirim' : '⚠ Aktifkan notifikasi terlebih dahulu');
 }
 
+const NOTIFICATION_DISMISSED_KEY = 'Trackify_notificationDismissedAlerts';
+
 const NOTIFICATION_TYPE_ICON = {
   habit: 'icon-habit',
   journal: 'icon-journal',
@@ -3826,6 +3832,39 @@ const NOTIFICATION_TYPE_ICON = {
   emosi: 'icon-emosi',
   menstruasi: 'icon-siklus'
 };
+
+function loadDismissedNotificationAlerts() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFICATION_DISMISSED_KEY) || '{}');
+    if (!isPlainObject(raw)) return {};
+    const cutoff = Date.now() - (14 * 86400000);
+    let changed = false;
+    Object.entries(raw).forEach(([key, time]) => {
+      const parsed = Date.parse(time);
+      if (!Number.isFinite(parsed) || parsed < cutoff) {
+        delete raw[key];
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem(NOTIFICATION_DISMISSED_KEY, JSON.stringify(raw));
+    return raw;
+  } catch {
+    return {};
+  }
+}
+
+function saveDismissedNotificationAlerts(map) {
+  try { localStorage.setItem(NOTIFICATION_DISMISSED_KEY, JSON.stringify(map)); } catch {}
+}
+
+function dismissNotificationAlerts(alerts) {
+  const map = loadDismissedNotificationAlerts();
+  const now = new Date().toISOString();
+  alerts.forEach(alert => {
+    if (alert.key) map[alert.key] = now;
+  });
+  saveDismissedNotificationAlerts(map);
+}
 
 function notificationRelativeLabel(diff) {
   if (diff < 0) return `Terlambat ${Math.abs(diff)} hari`;
@@ -3862,6 +3901,7 @@ function getNotificationCenterData() {
     if (diff > 7 || diff < -7) return;
     const timeText = todo.dueTime ? ` jam ${todo.dueTime}` : '';
     alerts.push({
+      key: `todo:${todo.id || todo.text || ''}:${todo.dueDate}:${todo.dueTime || ''}`,
       icon: 'icon-todo',
       title: diff < 0 ? 'To-Do melewati deadline' : diff === 0 ? 'To-Do deadline hari ini' : 'To-Do mendekati deadline',
       body: todo.text || 'Tugas tanpa judul',
@@ -3877,6 +3917,7 @@ function getNotificationCenterData() {
     const diff = diffDays(td, target.deadline);
     if (diff > 7 || diff < -7) return;
     alerts.push({
+      key: `target:${target._id || target.name || ''}:${target.deadline}`,
       icon: 'icon-target',
       title: diff < 0 ? 'Target melewati deadline' : diff === 0 ? 'Target deadline hari ini' : 'Target mendekati deadline',
       body: target.name || 'Target tanpa judul',
@@ -3893,6 +3934,7 @@ function getNotificationCenterData() {
     const remaining = totalHabits - doneHabits;
     if (remaining > 0) {
       alerts.push({
+        key: `habit:${td}:${state.habits.join('|')}:${remaining}/${totalHabits}`,
         icon: 'icon-habit',
         title: 'Habit belum selesai',
         body: `${remaining} dari ${totalHabits} habit hari ini belum dicentang.`,
@@ -3909,6 +3951,7 @@ function getNotificationCenterData() {
     const diff = diffDays(td, mensStats.nextPeriod);
     if (diff >= 0 && diff <= 5) {
       alerts.push({
+        key: `menstruasi:${mensStats.nextPeriod}`,
         icon: 'icon-siklus',
         title: diff === 0 ? 'Prediksi menstruasi hari ini' : 'Prediksi menstruasi mendekat',
         body: 'Siapkan catatan siklus dan perhatikan kondisi tubuh.',
@@ -3921,6 +3964,8 @@ function getNotificationCenterData() {
   }
 
   alerts.sort((a, b) => a.sort - b.sort);
+  const dismissedAlerts = loadDismissedNotificationAlerts();
+  const visibleAlerts = alerts.filter(alert => !alert.key || !dismissedAlerts[alert.key]);
 
   let prefs = null;
   try { prefs = getPrefs(); } catch { prefs = null; }
@@ -3943,7 +3988,7 @@ function getNotificationCenterData() {
   let history = [];
   try { history = getNotificationHistorySync().slice(0, 6); } catch { history = []; }
 
-  return { alerts, scheduled, history };
+  return { alerts: visibleAlerts, scheduled, history };
 }
 
 function renderNotificationCenter() {
@@ -3983,7 +4028,7 @@ function renderNotificationCenter() {
     </section>
     <div class="notification-center-footer">
       <button class="btn btn-sm" data-action="showPage('settings',this)"><svg width="12" height="12"><use href="#icon-settings"/></svg>Settings</button>
-      <button class="btn btn-sm" data-action="clearNotifHistoryUI()"><svg width="12" height="12"><use href="#icon-trash"/></svg>Hapus Riwayat</button>
+      <button class="btn btn-sm" data-action="clearNotificationCenterAll()"><svg width="12" height="12"><use href="#icon-trash"/></svg>Hapus Semua</button>
     </div>
   `;
 }
@@ -4003,6 +4048,16 @@ function updateNotificationCenter() {
   updateNotificationCenterBadge();
   const panel = document.getElementById('notification-center-panel');
   if (panel?.classList.contains('show')) renderNotificationCenter();
+}
+
+async function clearNotificationCenterAll({ silent = false } = {}) {
+  const { alerts } = getNotificationCenterData();
+  dismissNotificationAlerts(alerts);
+  try { await disableNotifications(); } catch {}
+  await clearNotifHistoryUI();
+  renderNotifSettings();
+  updateNotificationCenter();
+  if (!silent) showToast('Semua notifikasi berhasil dikosongkan');
 }
 
 function setNotificationCenterOpen(isOpen) {
@@ -4028,6 +4083,10 @@ function closeNotificationCenter() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeSidebar(); closeRewardModal(); closeContextMenu(); closeSearch(); closeNotificationCenter(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
+});
+
+document.addEventListener('trackify-notif-history-cleared', () => {
+  updateNotificationCenter();
 });
 
 /* ============================================================
@@ -4058,7 +4117,7 @@ Object.assign(window, {
   openQuickPage,
   openQuickActionModal, closeQuickActionModal, saveQuickAction, removeQuickAction,
   moveDashboardHeatmap, resetDashboardHeatmap, moveDashboardMiniCalendar,
-  toggleNotificationCenter, closeNotificationCenter,
+  toggleNotificationCenter, closeNotificationCenter, clearNotificationCenterAll,
 
   // Target
   addTarget, delTarget, toggleTargetStatus,
@@ -4093,7 +4152,7 @@ Object.assign(window, {
 
   // Notifikasi
   toggleMasterNotif, toggleNotifType, toggleNotifDeadline,
-  updateNotifTime, updateNotifAdvance, testNotif, clearNotifHistoryUI,
+  updateNotifTime, updateNotifAdvance, testNotif, clearNotifHistoryUI, clearNotificationCenterAll,
 
   // Settings & Reset
   resetAllData, clearSectionData, updateSettingsPage,
@@ -4222,6 +4281,7 @@ const _ACTION_MAP = {
   'toggleTheme()':      () => toggleTheme(),
   'toggleNotificationCenter()': () => toggleNotificationCenter(),
   'closeNotificationCenter()':  () => closeNotificationCenter(),
+  'clearNotificationCenterAll()': () => clearNotificationCenterAll(),
   'quickJournal()':     () => quickJournal(),
   'quickHabit()':       () => quickHabit(),
   'quickTodo()':        () => quickTodo(),

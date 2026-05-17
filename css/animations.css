@@ -1,0 +1,166 @@
+/* Trackify motion layer */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body,
+.sidebar-nav,
+.notification-center-body,
+.search-results,
+.quick-action-modal,
+.notif-history-list {
+  scroll-behavior: smooth;
+}
+
+@keyframes trackifyFadeLift {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes trackifySoftFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes trackifyRingBreath {
+  0%,
+  100% {
+    box-shadow: 0 14px 30px rgba(244, 114, 182, .14);
+  }
+  50% {
+    box-shadow: 0 18px 36px rgba(244, 114, 182, .24);
+  }
+}
+
+@keyframes trackifyBadgePulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes trackifyIconPop {
+  0% {
+    transform: scale(.96);
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+#page-dashboard .dashboard-actions-card,
+#page-dashboard .dashboard-top-grid > .card,
+#page-dashboard .dashboard-metric-card {
+  animation: trackifyFadeLift .5s ease both;
+}
+
+#page-dashboard .dashboard-actions-card {
+  animation-delay: .08s;
+}
+
+#page-dashboard .dashboard-top-grid > .card:nth-child(1) {
+  animation-delay: .12s;
+}
+
+#page-dashboard .dashboard-top-grid > .card:nth-child(2) {
+  animation-delay: .16s;
+}
+
+#page-dashboard .dashboard-top-grid > .card:nth-child(3) {
+  animation-delay: .2s;
+}
+
+#page-dashboard .dashboard-metric-card:nth-child(1) {
+  animation-delay: .12s;
+}
+
+#page-dashboard .dashboard-metric-card:nth-child(2) {
+  animation-delay: .16s;
+}
+
+#page-dashboard .dashboard-metric-card:nth-child(3) {
+  animation-delay: .2s;
+}
+
+#page-dashboard .dashboard-metric-card:nth-child(4) {
+  animation-delay: .24s;
+}
+
+#page-dashboard .dashboard-metric-card:nth-child(5) {
+  animation-delay: .28s;
+}
+
+#page-dashboard .quick-action-btn {
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+#page-dashboard .quick-action-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(97, 85, 232, .1);
+}
+
+#page-dashboard .quick-action-btn:hover .qa-icon {
+  animation: trackifyIconPop .34s ease both;
+}
+
+#page-dashboard .dashboard-cycle-ring {
+  animation: trackifyRingBreath 3.8s ease-in-out infinite;
+}
+
+#page-dashboard .dashboard-menstruasi-card:hover .dashboard-cycle-ring {
+  animation-duration: 2.4s;
+}
+
+.notification-badge:not([hidden]) {
+  animation: trackifyBadgePulse 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.desktop-notification-btn:hover svg,
+.topbar-icon-btn.notification-trigger-btn:hover svg {
+  animation: trackifyIconPop .34s ease both;
+}
+
+@media (min-width: 901px) {
+  #page-dashboard .dashboard-hero-quote-card {
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  html,
+  body,
+  .sidebar-nav,
+  .notification-center-body,
+  .search-results,
+  .quick-action-modal,
+  .notif-history-list {
+    scroll-behavior: auto !important;
+  }
+}

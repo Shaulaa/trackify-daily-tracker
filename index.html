@@ -15,6 +15,7 @@
   <link rel="shortcut icon" href="./img/favicon.png">
   <link rel="apple-touch-icon" href="./img/favicon.png">
   <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/animations.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body class="app-booting">
@@ -692,16 +693,82 @@
           <span class="dashboard-loading-shell__line dashboard-loading-shell__line--meta"></span>
           <span class="dashboard-loading-shell__line dashboard-loading-shell__line--title"></span>
           <span class="dashboard-loading-shell__line dashboard-loading-shell__line--body"></span>
+          <div class="dashboard-loading-shell__stats">
+            <span></span><span></span><span></span><span></span>
+          </div>
         </div>
-        <div class="dashboard-loading-shell__art"></div>
+        <div class="dashboard-loading-shell__art">
+          <span></span><span></span><span></span>
+        </div>
       </div>
-      <div class="dashboard-loading-shell__panel"></div>
+
+      <div class="dashboard-loading-shell__actions">
+        <span class="dashboard-loading-shell__line dashboard-loading-shell__line--eyebrow"></span>
+        <div class="dashboard-loading-shell__action-grid">
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="dashboard-loading-shell__top-grid">
+        <div class="dashboard-loading-shell__card dashboard-loading-shell__card--cycle">
+          <span class="dashboard-loading-shell__line dashboard-loading-shell__line--eyebrow"></span>
+          <div class="dashboard-loading-shell__cycle-layout">
+            <span class="dashboard-loading-shell__ring"></span>
+            <div>
+              <span class="dashboard-loading-shell__line dashboard-loading-shell__line--mini"></span>
+              <span class="dashboard-loading-shell__line dashboard-loading-shell__line--body"></span>
+            </div>
+          </div>
+          <span class="dashboard-loading-shell__pill"></span>
+          <div class="dashboard-loading-shell__tag-row">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="dashboard-loading-shell__card dashboard-loading-shell__card--heatmap">
+          <span class="dashboard-loading-shell__line dashboard-loading-shell__line--eyebrow"></span>
+          <div class="dashboard-loading-shell__heatmap">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <span class="dashboard-loading-shell__note"></span>
+        </div>
+
+        <div class="dashboard-loading-shell__card dashboard-loading-shell__card--mini-calendar">
+          <span class="dashboard-loading-shell__line dashboard-loading-shell__line--eyebrow"></span>
+          <div class="dashboard-loading-shell__calendar-grid">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+
       <div class="dashboard-loading-shell__metrics">
         <div class="dashboard-loading-shell__metric"></div>
         <div class="dashboard-loading-shell__metric"></div>
         <div class="dashboard-loading-shell__metric"></div>
+        <div class="dashboard-loading-shell__metric"></div>
+        <div class="dashboard-loading-shell__metric"></div>
       </div>
-      <div class="dashboard-loading-shell__quote"></div>
+
+      <div class="dashboard-loading-shell__lower-grid">
+        <div class="dashboard-loading-shell__card dashboard-loading-shell__card--list">
+          <span class="dashboard-loading-shell__line dashboard-loading-shell__line--eyebrow"></span>
+          <span></span><span></span><span></span>
+        </div>
+        <div class="dashboard-loading-shell__card dashboard-loading-shell__card--chart">
+          <span class="dashboard-loading-shell__line dashboard-loading-shell__line--eyebrow"></span>
+          <div class="dashboard-loading-shell__bars">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
     </section>
     <section class="dashboard-hero" aria-label="Pembuka dashboard">
       <div class="dashboard-hero__content">
