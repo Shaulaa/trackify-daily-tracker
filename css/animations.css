@@ -24,6 +24,50 @@ body,
   }
 }
 
+@keyframes trackifyPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes trackifyStaggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes trackifyModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes trackifyOverlayIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+  }
+}
+
 @keyframes trackifySoftFloat {
   0%,
   100% {
@@ -64,6 +108,170 @@ body,
   100% {
     transform: scale(1);
   }
+}
+
+@keyframes trackifySpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes trackifyNavPress {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes trackifyNavOpen {
+  0% {
+    transform: scale(.94);
+    border-color: var(--border2);
+  }
+  55% {
+    transform: scale(1.07);
+    border-color: var(--accent);
+  }
+  100% {
+    transform: scale(1);
+    border-color: var(--accent);
+  }
+}
+
+@keyframes trackifySidebarIn {
+  from {
+    opacity: .72;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes trackifyOverlayFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.trackify-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg1, #0f0f13);
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+.trackify-loading-spinner {
+  animation: trackifySpin 1s linear infinite;
+}
+
+.trackify-loading-text {
+  color: var(--text3, #888);
+  font-size: 13px;
+}
+
+.page.active {
+  animation: trackifyPageIn .34s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.page.active > .page-header,
+.page.active > .card,
+.page.active > .metric-grid,
+.page.active > .reward-cards,
+.page.active > .learning-stats-grid,
+.page.active > .privacy-highlights,
+.page.active > .dashboard-hero {
+  animation: trackifyStaggerIn .44s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.page.active > :nth-child(1) { animation-delay: .02s; }
+.page.active > :nth-child(2) { animation-delay: .06s; }
+.page.active > :nth-child(3) { animation-delay: .1s; }
+.page.active > :nth-child(4) { animation-delay: .14s; }
+.page.active > :nth-child(5) { animation-delay: .18s; }
+.page.active > :nth-child(6) { animation-delay: .22s; }
+.page.active > :nth-child(7) { animation-delay: .26s; }
+.page.active > :nth-child(8) { animation-delay: .3s; }
+
+.card,
+.metric-card,
+.reward-card,
+.learning-stat-card,
+.privacy-highlight,
+.quick-action-modal__item {
+  transition:
+    transform .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease,
+    background-color .2s ease;
+}
+
+.card:hover,
+.metric-card:hover,
+.learning-stat-card:hover,
+.privacy-highlight:hover,
+.quick-action-modal__item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(16, 20, 40, .12);
+}
+
+.reward-card:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+
+.nav-btn:hover .nav-icon,
+.nav-btn.active .nav-icon,
+.topbar-theme:hover,
+.desktop-notification-btn:hover,
+.topbar-icon-btn:hover,
+.btn:hover svg {
+  animation: trackifyIconPop .34s ease both;
+}
+
+.btn,
+button,
+input,
+select,
+textarea {
+  transition:
+    transform .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease,
+    background-color .18s ease,
+    color .18s ease;
+}
+
+.btn:active,
+button:active {
+  transform: translateY(1px) scale(.99);
+}
+
+.hamburger:active {
+  animation: trackifyNavPress .22s ease both;
+}
+
+.hamburger.open {
+  animation: trackifyNavOpen .32s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.hamburger.open .ham-line {
+  background: var(--accent);
 }
 
 #page-dashboard .dashboard-actions-card,
@@ -139,9 +347,43 @@ body,
   animation: trackifyIconPop .34s ease both;
 }
 
+.quick-action-modal-bg.show,
+.notification-center-panel.show,
+.edit-modal-backdrop[style*="display: flex"] {
+  animation: trackifyOverlayIn .24s ease both;
+}
+
+.quick-action-modal-bg.show .quick-action-modal,
+.notification-center-panel.show .notification-center-card,
+.edit-modal-backdrop[style*="display: flex"] .edit-modal-panel {
+  animation: trackifyModalIn .28s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.dashboard-hero-quote-card__spark {
+  animation: trackifySoftFloat 3.4s ease-in-out infinite;
+}
+
+.dashboard-hero-quote-card__spark--two {
+  animation-delay: .45s;
+}
+
+.dashboard-hero-quote-card__spark--three {
+  animation-delay: .9s;
+}
+
 @media (min-width: 901px) {
   #page-dashboard .dashboard-hero-quote-card {
     will-change: transform;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar.open {
+    animation: trackifySidebarIn .28s cubic-bezier(.2, .8, .2, 1) both;
+  }
+
+  .overlay.show {
+    animation: trackifyOverlayFade .22s ease both;
   }
 }
 
@@ -151,6 +393,7 @@ body,
   *::after {
     animation-duration: .001ms !important;
     animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
     scroll-behavior: auto !important;
   }
 

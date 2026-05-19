@@ -1,23 +1,23 @@
 {
   "name": "Trackify",
   "short_name": "Trackify",
-  "description": "Personal productivity dashboard — habit, journal, mood, target, dan lebih.",
+  "description": "Personal productivity dashboard - habit, journal, mood, target, dan lebih.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f8fafc",
-  "theme_color": "#f8fafc",
+  "background_color": "#151722",
+  "theme_color": "#151722",
   "lang": "id",
   "icons": [
     {
-      "src": "./img/logo-pwa-light-192.png",
+      "src": "./img/logo-pwa-dark-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./img/logo-pwa-light-512.png",
+      "src": "./img/logo-pwa-dark-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -30,13 +30,13 @@
       "name": "Habit Tracker",
       "short_name": "Habit",
       "url": "/?page=habit",
-      "icons": [{ "src": "./img/logo-pwa-light-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./img/logo-pwa-dark-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Jurnal Harian",
       "short_name": "Jurnal",
       "url": "/?page=journal",
-      "icons": [{ "src": "./img/logo-pwa-light-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "./img/logo-pwa-dark-192.png", "sizes": "192x192" }]
     }
   ]
 }

@@ -636,29 +636,6 @@ export function renderNotifSettings() {
   }).join('');
 
   // Riwayat — tampilkan dari localStorage cache dulu (sinkron, cepat)
-  const history = loadHistorySync();
-  let historyHTML = '';
-  if (history.length === 0) {
-    historyHTML = `<div style="font-size:13px;color:var(--text3);padding:10px 0;text-align:center">Belum ada notifikasi yang terkirim.</div>`;
-  } else {
-    const items = history.slice(0, 30).map(h => `
-      <div class="notif-history-item">
-        <div class="notif-history-dot"></div>
-        <div class="notif-history-content">
-          <div class="notif-history-title">${escapeHtml(h.title)}</div>
-          <div class="notif-history-body">${escapeHtml(h.body)}</div>
-          <div class="notif-history-time">${formatTime(h.time)}</div>
-        </div>
-      </div>`).join('');
-    historyHTML = `
-      <div class="notif-history-list">${items}</div>
-      <button class="btn btn-sm btn-danger" style="margin-top:10px;font-size:12px"
-        data-action="clearNotifHistoryUI()">
-        <svg width="12" height="12" style="vertical-align:-1px;margin-right:5px"><use href="#icon-trash"/></svg>
-        Hapus Riwayat
-      </button>`;
-  }
-
   container.innerHTML = `
     ${banner}
     <div class="notif-master-row">
@@ -678,13 +655,6 @@ export function renderNotifSettings() {
     ${deadlineRows}
 
     ${groupsHTML}
-
-    <div class="notif-section-title" style="margin-top:24px">
-      <svg width="13" height="13"><use href="#icon-bell"/></svg> Riwayat Notifikasi
-      <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">(${history.length} tersimpan)</span>
-    </div>
-    <div class="notif-section-desc">Semua notifikasi yang pernah terkirim dari Trackify, tersimpan di akun.</div>
-    ${historyHTML}
   `;
 }
 

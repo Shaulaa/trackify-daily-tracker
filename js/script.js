@@ -771,6 +771,10 @@ function initApp() {
   try {
     const savedTheme = localStorage.getItem('Trackify_theme');
     if (savedTheme === 'light' || savedTheme === 'dark') state.theme = savedTheme;
+    else {
+      const bootTheme = document.documentElement.dataset.theme;
+      state.theme = bootTheme === 'light' || bootTheme === 'dark' ? bootTheme : state.theme;
+    }
   } catch(e) {}
 
   habitRows   = state.habitRows?.length ? [...state.habitRows] : [today()];
@@ -781,6 +785,7 @@ function initApp() {
   renderAll();
   renderDashboardDate();
   finishInitialLoad();
+  maybeShowFirstRunOnboarding();
   // initNotifications dipanggil di loadAllData() setelah user login
 }
 
@@ -814,8 +819,10 @@ function renderAll() {
    ============================================================ */
 
 function applyTheme(theme) {
+  theme = theme === 'light' ? 'light' : 'dark';
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
+  updatePwaThemeShell(theme);
   updateThemeLogos(theme);
   updateDashboardHeroArtwork(theme);
   const iconSvg = theme === 'dark'
@@ -827,6 +834,18 @@ function applyTheme(theme) {
     btn.innerHTML = iconSvg;
     btn.setAttribute('aria-label', `Ganti ke ${label}`);
   });
+}
+
+function updatePwaThemeShell(theme) {
+  const themeColor = theme === 'dark' ? '#151722' : '#f8fafc';
+  const meta = document.getElementById('theme-color-meta') || document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', themeColor);
+
+  const manifest = document.getElementById('pwa-manifest') || document.querySelector('link[rel="manifest"]');
+  if (manifest) {
+    const nextHref = theme === 'dark' ? './manifest-dark.json' : './manifest.json';
+    if (manifest.getAttribute('href') !== nextHref) manifest.setAttribute('href', nextHref);
+  }
 }
 
 function updateDashboardHeroArtwork(theme) {
@@ -1089,12 +1108,14 @@ function toggleSidebar() {
   document.getElementById('hamburger')?.classList.toggle('open', open);
   document.getElementById('overlay')?.classList.toggle('show', open);
   document.getElementById('hamburger')?.setAttribute('aria-expanded', String(!!open));
+  document.body.classList.toggle('sidebar-open', !!open);
 }
 function closeSidebar() {
   document.getElementById('sidebar')?.classList.remove('open');
   document.getElementById('hamburger')?.classList.remove('open');
   document.getElementById('overlay')?.classList.remove('show');
   document.getElementById('hamburger')?.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('sidebar-open');
 }
 
 // Loading overlay — ditampilkan saat fetch Firebase berlangsung
@@ -1103,19 +1124,13 @@ function setLoadingOverlay(visible) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'trackify-loading-overlay';
-    el.style.cssText = [
-      'position:fixed','inset:0','z-index:9999',
-      'background:var(--bg1,#0f0f13)','display:flex',
-      'align-items:center','justify-content:center',
-      'flex-direction:column','gap:12px',
-      'transition:opacity .25s ease','pointer-events:none'
-    ].join(';');
+    el.className = 'trackify-loading-overlay';
     el.innerHTML = `
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="animation:trackify-spin 1s linear infinite">
+      <svg class="trackify-loading-spinner" width="40" height="40" viewBox="0 0 40 40" fill="none">
         <circle cx="20" cy="20" r="16" stroke="var(--accent,.6rem)" stroke-width="3" stroke-dasharray="80 20" stroke-linecap="round"/>
       </svg>
-      <span style="font-size:13px;color:var(--text3,#888)">Memuat data…</span>
-      <style>@keyframes trackify-spin{to{transform:rotate(360deg)}}</style>`;
+      <span class="trackify-loading-text">Memuat data...</span>
+      `;
     document.body.appendChild(el);
   }
   if (visible) {
@@ -1238,38 +1253,55 @@ function emptyHTML(iconKey, msg) {
 
 const ONBOARD_KEY = 'Trackify_onboarded_v1';
 
-const ONBOARD_STEPS = [
+const ONBOARD_PATHS = [
   {
+    id: 'today',
     icon: 'icon-todo',
-    color: 'var(--cat-todo-bg)',
-    iconColor: 'var(--cat-todo)',
-    title: 'Mulai dari To-Do',
-    desc: 'Catat tugas harianmu, set deadline, dan tandai selesai satu per satu.'
+    tone: 'todo',
+    page: 'todo',
+    navIndex: 3,
+    focusId: 'todo-input',
+    eyebrow: 'Mulai ringan',
+    title: 'Rapikan hari ini',
+    desc: 'Tulis satu hal yang perlu selesai dulu. Sisanya bisa menyusul setelah ritmenya kebentuk.',
+    cta: 'Buat tugas pertama',
+    chips: ['Tugas', 'Deadline', 'Prioritas']
   },
   {
+    id: 'habit',
     icon: 'icon-fire',
-    color: 'var(--cat-habit-bg)',
-    iconColor: 'var(--cat-habit)',
-    title: 'Bangun Habit Konsisten',
-    desc: 'Lacak kebiasaan positif setiap hari dan jaga streak-mu tetap hidup.'
+    tone: 'habit',
+    page: 'habit',
+    navIndex: 2,
+    focusId: 'new-habit',
+    eyebrow: 'Bangun ritme',
+    title: 'Lacak kebiasaan kecil',
+    desc: 'Pilih kebiasaan yang realistis untuk dicek setiap hari, bukan daftar yang bikin berat duluan.',
+    cta: 'Tambah habit pertama',
+    chips: ['Check-in', 'Streak', 'Progress']
   },
   {
+    id: 'reflect',
     icon: 'icon-journal',
-    color: 'var(--cat-journal-bg)',
-    iconColor: 'var(--cat-journal)',
-    title: 'Tulis Jurnal Harianmu',
-    desc: 'Refleksikan harimu, apa yang dilakukan, apa yang baik, dan apa yang bisa lebih baik.'
-  },
-  {
-    icon: 'icon-target',
-    color: 'var(--cat-target-bg)',
-    iconColor: 'var(--cat-target)',
-    title: 'Tetapkan Target Besar',
-    desc: 'Buat tujuan jangka panjang dan pantau progresnya sampai selesai.'
-  },
+    tone: 'journal',
+    page: 'journal',
+    navIndex: 6,
+    focusId: 'j-did',
+    eyebrow: 'Pelan tapi jujur',
+    title: 'Catat momen hari ini',
+    desc: 'Simpan apa yang terjadi, apa yang terasa baik, dan satu hal yang ingin kamu bawa besok.',
+    cta: 'Tulis jurnal pertama',
+    chips: ['Mood', 'Catatan', 'Pola']
+  }
 ];
 
-let _onboardStep = 0;
+const ONBOARD_NOTES = [
+  { icon: 'icon-dashboard', title: 'Dashboard akan terisi sendiri', desc: 'Begitu kamu mulai mencatat, ringkasan dan pola akan muncul tanpa setup tambahan.' },
+  { icon: 'icon-save', title: 'Data bisa dibawa pulang', desc: 'Export dan restore tersedia di Settings saat kamu butuh backup.' },
+  { icon: 'icon-search', title: 'Cari cepat saat data mulai banyak', desc: 'Pakai search untuk loncat ke target, tugas, jurnal, atau sesi belajar.' }
+];
+
+let _onboardChoice = ONBOARD_PATHS[0].id;
 
 function onboardingIcon(iconId, size = 28) {
   return `<svg width="${size}" height="${size}" aria-hidden="true"><use href="#${iconId}"/></svg>`;
@@ -1277,11 +1309,35 @@ function onboardingIcon(iconId, size = 28) {
 
 function showOnboarding() {
   if (localStorage.getItem(ONBOARD_KEY)) return;
-  _onboardStep = 0;
-  renderOnboardingStep();
+  _onboardChoice = ONBOARD_PATHS[0].id;
+  renderOnboarding();
 }
 
-function renderOnboardingStep() {
+function isFreshState(data = state) {
+  return !data.habits?.length
+    && !data.todos?.length
+    && !data.journals?.length
+    && !data.targets?.length
+    && !data.learnings?.length
+    && !data.emosis?.length
+    && !data.reflections?.length
+    && !data.sosials?.length
+    && !data.menstruasis?.length
+    && !data.checkins?.length;
+}
+
+function maybeShowFirstRunOnboarding() {
+  if (localStorage.getItem(ONBOARD_KEY) || !isFreshState()) return;
+  setTimeout(() => {
+    if (!getCurrentUser() && !localStorage.getItem(ONBOARD_KEY) && isFreshState()) showOnboarding();
+  }, 720);
+}
+
+function getOnboardPath(pathId = _onboardChoice) {
+  return ONBOARD_PATHS.find(path => path.id === pathId) || ONBOARD_PATHS[0];
+}
+
+function renderOnboarding() {
   let backdrop = document.getElementById('onboarding-backdrop');
   if (!backdrop) {
     backdrop = document.createElement('div');
@@ -1290,53 +1346,82 @@ function renderOnboardingStep() {
     document.body.appendChild(backdrop);
   }
 
-  const step = ONBOARD_STEPS[_onboardStep];
-  const isLast = _onboardStep === ONBOARD_STEPS.length - 1;
-  const dots = ONBOARD_STEPS.map((_, i) =>
-    `<div class="onboarding-dot ${i === _onboardStep ? 'active' : ''}"></div>`
-  ).join('');
+  const activePath = getOnboardPath();
 
   backdrop.innerHTML = `
-    <div class="onboarding-modal" role="dialog" aria-modal="true" aria-label="Selamat datang di Trackify">
+    <div class="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
       <div class="onboarding-hero">
-        <div class="onboarding-icon-ring">${onboardingIcon(step.icon, 32)}</div>
-        <div class="onboarding-title">${step.title}</div>
-        <div class="onboarding-subtitle">${step.desc}</div>
+        <div class="onboarding-kicker">Trackify siap dipakai</div>
+        <div class="onboarding-title" id="onboarding-title">Mulai dari satu langkah yang paling masuk akal.</div>
+        <div class="onboarding-subtitle">Kamu tidak perlu mengisi semuanya hari ini. Pilih pintu masuk yang paling dekat dengan kebutuhanmu sekarang.</div>
       </div>
-      <div class="onboarding-steps">
-        ${ONBOARD_STEPS.map((s, i) => `
-          <div class="onboarding-step" style="opacity:${i === _onboardStep ? '1' : '0.45'};border-color:${i === _onboardStep ? 'var(--border2)' : 'var(--border)'}">
-            <div class="onboarding-step-icon" style="background:${s.color};color:${s.iconColor}">${onboardingIcon(s.icon, 20)}</div>
-            <div class="onboarding-step-text">
-              <strong>${s.title}</strong>
-              <span>${s.desc}</span>
+      <div class="onboarding-body">
+        <div class="onboarding-paths" aria-label="Pilihan mulai">
+          ${ONBOARD_PATHS.map(path => `
+            <button type="button" class="onboarding-path ${path.id === activePath.id ? 'active' : ''} tone-${path.tone}" data-action="onboardSelect('${path.id}')">
+              <span class="onboarding-path-icon">${onboardingIcon(path.icon, 22)}</span>
+              <span class="onboarding-path-copy">
+                <span>${escapeHTML(path.eyebrow)}</span>
+                <strong>${escapeHTML(path.title)}</strong>
+                <small>${escapeHTML(path.desc)}</small>
+              </span>
+            </button>`).join('')}
+        </div>
+        <div class="onboarding-preview tone-${activePath.tone}">
+          <div class="onboarding-preview-top">
+            <div class="onboarding-preview-icon">${onboardingIcon(activePath.icon, 24)}</div>
+            <div>
+              <div class="onboarding-preview-label">${escapeHTML(activePath.eyebrow)}</div>
+              <div class="onboarding-preview-title">${escapeHTML(activePath.title)}</div>
             </div>
-          </div>`).join('')}
+          </div>
+          <div class="onboarding-preview-line"></div>
+          <div class="onboarding-preview-line short"></div>
+          <div class="onboarding-chip-row">
+            ${activePath.chips.map(chip => `<span>${escapeHTML(chip)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="onboarding-notes">
+          ${ONBOARD_NOTES.map(note => `
+            <div class="onboarding-note">
+              <span>${onboardingIcon(note.icon, 17)}</span>
+              <div><strong>${escapeHTML(note.title)}</strong><small>${escapeHTML(note.desc)}</small></div>
+            </div>`).join('')}
+        </div>
       </div>
       <div class="onboarding-footer">
-        <div class="onboarding-progress">${dots}</div>
-        <button class="btn btn-primary" data-action="onboardNext()">
-          ${isLast ? 'Mulai Trackify!' : 'Lanjut'}
-        </button>
-        <button class="onboarding-skip" data-action="onboardSkip()">Lewati panduan</button>
+        <button class="btn btn-primary" data-action="onboardStart()">${escapeHTML(activePath.cta)}</button>
+        <button class="onboarding-skip" data-action="onboardSkip()">Nanti saja, langsung masuk</button>
       </div>
     </div>`;
 }
 
+function onboardSelect(pathId) {
+  _onboardChoice = getOnboardPath(pathId).id;
+  renderOnboarding();
+}
+
 function onboardNext() {
-  _onboardStep++;
-  if (_onboardStep >= ONBOARD_STEPS.length) {
-    onboardDone();
-  } else {
-    renderOnboardingStep();
-  }
+  onboardStart();
+}
+
+function onboardStart(pathId = _onboardChoice) {
+  const path = getOnboardPath(pathId);
+  onboardDone({ silent: true });
+  showPage(path.page, navBtn(path.navIndex));
+  setTimeout(() => {
+    const target = document.getElementById(path.focusId);
+    target?.focus?.();
+    target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, 260);
+  showToast(`Mulai dari ${path.title.toLowerCase()}`);
 }
 
 function onboardSkip() {
-  onboardDone();
+  onboardDone({ silent: true });
 }
 
-function onboardDone() {
+function onboardDone({ silent = false } = {}) {
   localStorage.setItem(ONBOARD_KEY, '1');
   const backdrop = document.getElementById('onboarding-backdrop');
   if (backdrop) {
@@ -1344,6 +1429,7 @@ function onboardDone() {
     backdrop.style.transition = 'opacity 0.3s ease';
     setTimeout(() => backdrop.remove(), 320);
   }
+  if (!silent) showToast('Panduan selesai');
 }
 
 function escapeHTML(str) {
@@ -1435,7 +1521,23 @@ function renderDashboardDate() {
 
   const greetingText = document.getElementById('dash-greeting-text');
   if (greetingText) {
-    greetingText.textContent = firstName ? `${greeting}, ${firstName}!` : `${greeting}!`;
+    const [greetingLead, ...greetingRest] = greeting.split(' ');
+    const greetingMain = greetingRest.join(' ') || greetingLead;
+    greetingText.innerHTML = `
+      <span class="dashboard-greeting-word dashboard-greeting-word--lead">${escapeHTML(greetingLead)}</span>
+      <span class="dashboard-greeting-word dashboard-greeting-word--main">
+        ${escapeHTML(greetingMain)}
+        <span class="dashboard-greeting-swoosh" aria-hidden="true">
+          <svg viewBox="0 0 560 120" focusable="false">
+            <path class="dashboard-greeting-swoosh__underline" d="M8 78 C138 82 310 75 424 56" />
+            <path class="dashboard-greeting-swoosh__curl" d="M424 56 C486 46 540 22 548 4" />
+          </svg>
+        </span>
+        <span class="dashboard-greeting-star dashboard-greeting-star--big" aria-hidden="true">&#10023;</span>
+        <span class="dashboard-greeting-star dashboard-greeting-star--small" aria-hidden="true">&#10023;</span>
+      </span>
+      <span class="dashboard-greeting-dot" aria-hidden="true"></span>
+    `;
   }
 
   const encouragementText = document.getElementById('dash-encouragement-text');
@@ -1690,19 +1792,15 @@ function getDashboardMensRecommendations(phaseText) {
       ['icon-clock', 'Ambil jeda pendek']
     ];
   }
-  return [
-    ['icon-siklus', 'Isi data siklus'],
-    ['icon-journal', 'Catat gejala'],
-    ['icon-glass', 'Minum air putih'],
-    ['icon-moon', 'Pantau istirahat'],
-    ['icon-emosi', 'Catat mood']
-  ];
+  return [];
 }
 
 function renderDashboardMensRecommendations(phaseText) {
   const el = document.querySelector('#page-dashboard .dashboard-mens-recommendations');
   if (!el) return;
-  el.innerHTML = getDashboardMensRecommendations(phaseText).map(([icon, label]) => (
+  const recommendations = phaseText ? getDashboardMensRecommendations(phaseText) : [];
+  el.hidden = recommendations.length === 0;
+  el.innerHTML = recommendations.map(([icon, label]) => (
     `<span><svg width="12" height="12"><use href="#${icon}"/></svg>${escapeHTML(label)}</span>`
   )).join('');
 }
@@ -4118,6 +4216,7 @@ Object.assign(window, {
   openQuickActionModal, closeQuickActionModal, saveQuickAction, removeQuickAction,
   moveDashboardHeatmap, resetDashboardHeatmap, moveDashboardMiniCalendar,
   toggleNotificationCenter, closeNotificationCenter, clearNotificationCenterAll,
+  showOnboarding, onboardSelect, onboardStart, onboardNext, onboardSkip, onboardDone,
 
   // Target
   addTarget, delTarget, toggleTargetStatus,
