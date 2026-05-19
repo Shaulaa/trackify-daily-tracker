@@ -837,7 +837,7 @@ function applyTheme(theme) {
 }
 
 function updatePwaThemeShell(theme) {
-  const themeColor = theme === 'dark' ? '#151722' : '#f8fafc';
+  const themeColor = theme === 'dark' ? '#0a0c12' : '#f0f2f8';
   const meta = document.getElementById('theme-color-meta') || document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', themeColor);
 
@@ -1529,14 +1529,12 @@ function renderDashboardDate() {
         ${escapeHTML(greetingMain)}
         <span class="dashboard-greeting-swoosh" aria-hidden="true">
           <svg viewBox="0 0 560 120" focusable="false">
-            <path class="dashboard-greeting-swoosh__underline" d="M8 78 C138 82 310 75 424 56" />
-            <path class="dashboard-greeting-swoosh__curl" d="M424 56 C486 46 540 22 548 4" />
+            <path class="dashboard-greeting-swoosh__underline" d="M22 90 C132 92 276 88 362 78 C418 68 468 55 488 32 C500 18 504 8 500 2" />
           </svg>
         </span>
         <span class="dashboard-greeting-star dashboard-greeting-star--big" aria-hidden="true">&#10023;</span>
         <span class="dashboard-greeting-star dashboard-greeting-star--small" aria-hidden="true">&#10023;</span>
       </span>
-      <span class="dashboard-greeting-dot" aria-hidden="true"></span>
     `;
   }
 

@@ -1,11 +1,11 @@
 ﻿<!DOCTYPE html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="trackify-asset-base" content="./">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Trackify - Personal dashboard untuk melacak target, kebiasaan, jurnal, dan pertumbuhan pribadi.">
-  <meta name="theme-color" id="theme-color-meta" content="#f8fafc">
+  <meta name="theme-color" id="theme-color-meta" content="#f0f2f8">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Trackify">
   <title>Trackify - Personal Dashboard</title>
@@ -18,7 +18,7 @@
         theme = saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light';
       } catch (e) {}
       document.documentElement.setAttribute('data-theme', theme);
-      var themeColor = theme === 'dark' ? '#151722' : '#f8fafc';
+      var themeColor = theme === 'dark' ? '#0a0c12' : '#f0f2f8';
       var meta = document.getElementById('theme-color-meta');
       if (meta) meta.setAttribute('content', themeColor);
       var manifest = document.createElement('link');
@@ -28,7 +28,12 @@
       document.head.appendChild(manifest);
     })();
   </script>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { background: #f0f2f8; }
+    html[data-theme="dark"], html[data-theme="dark"] body { background: #0a0c12; }
+    html[data-theme="light"], html[data-theme="light"] body { background: #f0f2f8; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Outfit:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="./img/favicon.png">
   <link rel="shortcut icon" href="./img/favicon.png">
   <link rel="apple-touch-icon" href="./img/logo-pwa-light-192.png">
