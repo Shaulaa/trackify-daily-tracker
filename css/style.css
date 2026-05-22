@@ -5449,10 +5449,10 @@ label > svg {
 
 #page-dashboard .dashboard-greeting-swoosh {
   position: absolute;
-  left: .02em;
+  left: -.24em;
   right: auto;
   bottom: -.22em;
-  width: calc(100% + .62em);
+  width: calc(100% + 1.48em);
   height: .62em;
   transform: rotate(-.45deg);
   z-index: 1;
@@ -6303,10 +6303,10 @@ label > svg {
   }
 
   #page-dashboard .dashboard-greeting-swoosh {
-    left: .02em;
+    left: -.18em;
     right: auto;
     bottom: -.22em;
-    width: calc(100% + .56em);
+    width: calc(100% + 1.16em);
     height: .6em;
   }
 

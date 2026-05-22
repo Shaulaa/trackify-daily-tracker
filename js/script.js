@@ -962,9 +962,9 @@ function showPage(id, btn, _fromHistory = false) {
   if (!_fromHistory) history.pushState({ page: id }, '', location.href);
 
   closeSidebar();
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   const title = pageEl.querySelector('.page-title');
-  if (title) { title.setAttribute('tabindex', '-1'); title.focus(); }
+  if (title) { title.setAttribute('tabindex', '-1'); title.focus({ preventScroll: true }); }
 }
 
 // Quick action shortcuts
@@ -1529,7 +1529,7 @@ function renderDashboardDate() {
         ${escapeHTML(greetingMain)}
         <span class="dashboard-greeting-swoosh" aria-hidden="true">
           <svg viewBox="0 0 560 120" focusable="false">
-            <path class="dashboard-greeting-swoosh__underline" d="M22 90 C132 92 276 88 362 78 C418 68 468 55 488 32 C500 18 504 8 500 2" />
+            <path class="dashboard-greeting-swoosh__underline" d="M22 82 C132 103 330 101 438 72 C486 59 520 34 540 8" />
           </svg>
         </span>
         <span class="dashboard-greeting-star dashboard-greeting-star--big" aria-hidden="true">&#10023;</span>
