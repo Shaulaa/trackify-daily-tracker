@@ -445,11 +445,19 @@ img[alt="Trackify logo"] {
 /* ── MAIN ── */
 .main {
   margin-left: 260px;
+  width: calc(100% - 260px);
+  max-width: 1680px;
   min-height: 100vh;
   padding: 30px 30px 60px;
   position: relative;
   z-index: 1;
   transition: margin .3s;
+}
+
+@media (min-width: 1940px) {
+  .main {
+    margin-left: calc(260px + ((100vw - 260px - 1680px) / 2));
+  }
 }
 
 .page { display: none; }
@@ -1787,7 +1795,7 @@ tr.empty-row td::before { display: none !important; }
     box-shadow: 4px 0 40px rgba(0,0,0,.5);
   }
   .topbar { display: flex; }
-  .main { margin-left: 0; padding: 80px 18px 60px; }
+  .main { margin-left: 0; width: 100%; max-width: none; padding: 80px 18px 60px; }
   .grid4 { grid-template-columns: repeat(2, 1fr); }
   .dashboard-loading-shell__hero {
     min-height: 304px;
@@ -2199,7 +2207,7 @@ tr.empty-row td::before { display: none !important; }
 /* ── PRINT ── */
 @media print {
   .sidebar, .topbar, .toast, .reward-modal-bg, .btn, .del-btn { display: none !important; }
-  .main { margin-left: 0; padding: 0; }
+  .main { margin-left: 0; width: 100%; max-width: none; padding: 0; }
 }
 
 /* ── TODO DUE DATE & TIME ── */
@@ -7468,6 +7476,62 @@ label > svg {
 
 #page-dashboard .dashboard-top-grid .dashboard-calendar-legend {
   margin-top: 9px;
+}
+
+@media (min-width: 1440px) {
+  #page-dashboard .dashboard-hero {
+    min-height: 340px;
+    padding-right: min(46vw, 720px);
+  }
+
+  #page-dashboard .dashboard-hero__content {
+    max-width: 800px;
+  }
+
+  #page-dashboard .dashboard-actions-card {
+    padding-inline: 24px;
+  }
+
+  #page-dashboard .quick-actions-grid {
+    grid-template-columns: repeat(8, minmax(128px, 1fr));
+  }
+
+  #page-dashboard .dashboard-top-grid {
+    grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.28fr) minmax(280px, .74fr);
+    gap: 18px;
+  }
+
+  .dashboard-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 380px);
+    gap: 18px;
+  }
+
+  .dashboard-main-column,
+  .dashboard-side-column {
+    gap: 18px;
+  }
+
+  .dashboard-metric-row {
+    gap: 14px;
+  }
+
+  .dashboard-lower-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(360px, .82fr);
+    gap: 18px;
+  }
+}
+
+@media (min-width: 1940px) {
+  #page-dashboard .dashboard-hero {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0 0 28px 28px;
+    padding-left: 52px;
+  }
+
+  #page-dashboard .dashboard-actions-card {
+    margin-inline: 24px;
+  }
 }
 
 @media (max-width: 1280px) {
