@@ -10,6 +10,14 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Trackify">
   <title>Trackify - Personal Dashboard</title>
+  
+  <!-- Preconnect untuk CDN eksternal (optimasi DNS & TLS) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  
   <script>
     (function () {
       var theme = 'light';
@@ -34,13 +42,19 @@
     html[data-theme="dark"], html[data-theme="dark"] body { background: #0a0c12; }
     html[data-theme="light"], html[data-theme="light"] body { background: #f0f2f8; }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Outfit:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Google Fonts dengan preload untuk faster rendering -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Outfit:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Outfit:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Outfit:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  
   <link rel="icon" type="image/png" href="./img/favicon.png">
   <link rel="shortcut icon" href="./img/favicon.png">
   <link rel="apple-touch-icon" href="./img/logo-pwa-light-192.png">
   <link rel="stylesheet" href="./css/style.css">
   <link rel="stylesheet" href="./css/animations.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  
+  <!-- Chart.js akan di-lazy load on-demand via script.js -->
 </head>
 <body class="app-booting">
 

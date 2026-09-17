@@ -1,30 +1,49 @@
-# ── Environment & Secrets ─────────────────────────────────────
+# Dependencies
+node_modules/
+package-lock.json
+
+# Documentation and non-essential files
+*.md
+
+# Build outputs (minified files - optional, bisa di-commit untuk production)
+# Uncomment jika tidak ingin commit minified files
+# css/*.min.css
+# js/*.min.js
+
+# Image optimization outputs
+img/*.optimized.png
+
+# Environment
 .env
 .env.local
-.env.production
 .env*.local
-*.pem
-*service-account*.json
-*firebase-adminsdk*.json
 
-# ── Dependencies ──────────────────────────────────────────────
-node_modules/
-.npm
-
-# ── Vercel ────────────────────────────────────────────────────
+# Vercel
 .vercel
 
-# ── OS & Editor ───────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# ── Logs ──────────────────────────────────────────────────────
+# Logs
 *.log
 npm-debug.log*
+.tmp-node-server.err
+.tmp-node-server.out
 
-# Firebase service account — JANGAN di-commit
-serviceAccountKey.json
-*serviceAccount*.json
-*.json.key
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

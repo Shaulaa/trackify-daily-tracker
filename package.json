@@ -3,10 +3,31 @@
   "version": "2.6.0",
   "private": true,
   "description": "Trackify — Personal Productivity Dashboard",
+  "scripts": {
+    "build": "npm run build:css && npm run build:js && echo Build complete!",
+    "build:css": "echo Minifying CSS... && npm run minify:style && npm run minify:animations",
+    "build:js": "echo Minifying JS... && npm run minify:script && npm run minify:firebase && npm run minify:notifications && npm run minify:pwa && npm run minify:fcm",
+    "minify:style": "node build-tools/minify-css.js css/style.css css/style.min.css",
+    "minify:animations": "node build-tools/minify-css.js css/animations.css css/animations.min.css",
+    "minify:script": "node build-tools/minify-js.js js/script.js js/script.min.js",
+    "minify:firebase": "node build-tools/minify-js.js js/firebase.js js/firebase.min.js",
+    "minify:notifications": "node build-tools/minify-js.js js/notifications.js js/notifications.min.js",
+    "minify:pwa": "node build-tools/minify-js.js js/pwa.js js/pwa.min.js",
+    "minify:fcm": "node build-tools/minify-js.js js/fcm.js js/fcm.min.js",
+    "optimize:images": "node build-tools/optimize-images.js",
+    "dev": "echo Development mode - using unminified files",
+    "prod": "npm run build && echo Production build ready for deployment!"
+  },
   "dependencies": {
     "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "terser": "^5.31.0",
+    "csso": "^5.0.5",
+    "sharp": "^0.33.0"
   },
   "engines": {
     "node": ">=18"
   }
 }
+

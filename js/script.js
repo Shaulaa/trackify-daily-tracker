@@ -22,6 +22,39 @@ import {
 } from './notifications.js';
 
 // ============================================================
+// PERFORMANCE OPTIMIZATION — Lazy Loading
+// ============================================================
+
+/** Lazy load Chart.js on-demand untuk menghemat initial bundle */
+let _chartJsLoaded = false;
+async function ensureChartJs() {
+  if (_chartJsLoaded || window.Chart) {
+    _chartJsLoaded = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+    script.onload = () => { 
+      _chartJsLoaded = true; 
+      console.log('[Trackify] Chart.js loaded on-demand'); 
+      resolve(); 
+    };
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+/** Register Service Worker untuk caching & offline support */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[Trackify] Service Worker registered:', reg.scope))
+      .catch(err => console.warn('[Trackify] Service Worker registration failed:', err));
+  });
+}
+
+// ============================================================
 // AUTH HANDLER
 // ============================================================
 
@@ -2064,7 +2097,10 @@ function _destroyChart(id) {
   if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
 }
 
-function renderDashboardCharts() {
+async function renderDashboardCharts() {
+  // Lazy load Chart.js sebelum render
+  await ensureChartJs();
+  
   // Warna dari CSS variables (computed)
   const cs = getComputedStyle(document.documentElement);
   const accent   = cs.getPropertyValue('--accent').trim()   || '#7c6ef7';
