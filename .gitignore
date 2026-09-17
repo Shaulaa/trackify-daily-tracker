@@ -5,6 +5,10 @@ package-lock.json
 # Documentation and non-essential files
 *.md
 
+# Generated build artifacts
+css/*.min.css
+js/*.min.js
+
 # Build outputs (minified files - optional, bisa di-commit untuk production)
 # Uncomment jika tidak ingin commit minified files
 # css/*.min.css
