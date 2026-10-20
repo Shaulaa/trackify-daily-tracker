@@ -10,6 +10,7 @@
     }
   },
   "buildCommand": "npm run build",
+  "outputDirectory": ".",
   "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
