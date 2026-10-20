@@ -78,16 +78,6 @@ body,
   }
 }
 
-@keyframes trackifyRingBreath {
-  0%,
-  100% {
-    box-shadow: 0 14px 30px rgba(244, 114, 182, .14);
-  }
-  50% {
-    box-shadow: 0 18px 36px rgba(244, 114, 182, .24);
-  }
-}
-
 @keyframes trackifyBadgePulse {
   0%,
   100% {
@@ -275,8 +265,7 @@ button:active {
 }
 
 #page-dashboard .dashboard-actions-card,
-#page-dashboard .dashboard-top-grid > .card,
-#page-dashboard .dashboard-metric-card {
+#page-dashboard .dashboard-top-grid > .card {
   animation: trackifyFadeLift .5s ease both;
 }
 
@@ -296,26 +285,6 @@ button:active {
   animation-delay: .2s;
 }
 
-#page-dashboard .dashboard-metric-card:nth-child(1) {
-  animation-delay: .12s;
-}
-
-#page-dashboard .dashboard-metric-card:nth-child(2) {
-  animation-delay: .16s;
-}
-
-#page-dashboard .dashboard-metric-card:nth-child(3) {
-  animation-delay: .2s;
-}
-
-#page-dashboard .dashboard-metric-card:nth-child(4) {
-  animation-delay: .24s;
-}
-
-#page-dashboard .dashboard-metric-card:nth-child(5) {
-  animation-delay: .28s;
-}
-
 #page-dashboard .quick-action-btn {
   transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
@@ -327,14 +296,6 @@ button:active {
 
 #page-dashboard .quick-action-btn:hover .qa-icon {
   animation: trackifyIconPop .34s ease both;
-}
-
-#page-dashboard .dashboard-cycle-ring {
-  animation: trackifyRingBreath 3.8s ease-in-out infinite;
-}
-
-#page-dashboard .dashboard-menstruasi-card:hover .dashboard-cycle-ring {
-  animation-duration: 2.4s;
 }
 
 .notification-badge:not([hidden]) {

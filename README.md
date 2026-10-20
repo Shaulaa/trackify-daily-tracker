@@ -5,6 +5,7 @@ Trackify adalah personal dashboard berbasis web untuk mencatat target, habit, to
 ## Fitur
 
 - Dashboard ringkas untuk melihat progres harian
+- Sidebar desktop dapat disembunyikan melalui tombol Menu; pilihan tersimpan di perangkat
 - Target tracker dengan status dan deadline
 - Habit tracker dengan riwayat check-in
 - To-do list dengan prioritas, kategori, dan deadline
@@ -89,6 +90,7 @@ http://localhost:3000/
 - `js/script.js` menangani state utama aplikasi
 - `js/notifications.js` menangani pengaturan dan trigger notifikasi
 - `js/firebase.js` menangani auth dan sinkronisasi Firestore
+- Jalankan `node --test tests/*.test.cjs` untuk memeriksa sidebar dan pembaruan aset offline
 
 ## Status
 

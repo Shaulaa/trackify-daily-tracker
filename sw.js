@@ -3,7 +3,7 @@
  * Caching strategy untuk performa & offline support
  */
 
-const CACHE_NAME = 'trackify-v2.6.0';
+const CACHE_NAME = 'trackify-v2.6.0-dashboard-20261020';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -64,6 +64,28 @@ self.addEventListener('fetch', event => {
   
   // Skip Chrome extension requests
   if (url.protocol === 'chrome-extension:') return;
+
+  // Keep the app shell current while retaining an offline fallback.
+  if (url.origin === self.location.origin && ['document', 'style', 'script'].includes(event.request.destination)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async cache => {
+        try {
+          const response = await fetch(event.request);
+          if (response.status === 200) await cache.put(event.request, response.clone()).catch(() => {});
+          return response;
+        } catch (error) {
+          const cached = await cache.match(event.request);
+          if (cached) return cached;
+          if (event.request.destination === 'document') {
+            const shell = await cache.match('./index.html');
+            if (shell) return shell;
+          }
+          throw error;
+        }
+      })
+    );
+    return;
+  }
   
   // Network-first untuk Firebase & API eksternal
   if (

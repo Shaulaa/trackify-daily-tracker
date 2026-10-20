@@ -23,6 +23,7 @@
       var theme = 'light';
       try {
         var saved = localStorage.getItem('Trackify_theme');
+        document.documentElement.classList.toggle('sidebar-collapsed', localStorage.getItem('Trackify_sidebarCollapsed') === 'true');
         var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         theme = saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light';
       } catch (e) {}
@@ -676,18 +677,14 @@
      MODAL REWARD
      ------------------------------------------ -->
 <div class="reward-modal-bg" id="reward-modal-bg"
-     role="dialog" aria-modal="true" aria-labelledby="rm-title"
      aria-hidden="true" data-action="closeRewardModal()">
-  <div class="reward-modal" data-action="event.stopPropagation()" tabindex="-1">
-    <div class="reward-modal-icon" id="rm-icon" aria-hidden="true"><svg width="44" height="44" style="color:#fbbf24"><use href="#icon-trophy"/></svg></div>
-    <div class="confetti" id="rm-confetti" aria-hidden="true">
-      <svg width="22" height="22" style="color:#a78bfa"><use href="#ms-icon-7"/></svg>
-      <svg width="28" height="28" style="color:#fbbf24"><use href="#icon-trophy"/></svg>
-      <svg width="22" height="22" style="color:#4ade80"><use href="#ms-icon-7"/></svg>
-    </div>
+  <div class="reward-modal" role="dialog" aria-modal="true" aria-labelledby="rm-title" aria-describedby="rm-desc" data-action="event.stopPropagation()" tabindex="-1">
+    <button type="button" class="reward-modal-close" data-action="closeRewardModal()" aria-label="Tutup pencapaian"><svg width="18" height="18" aria-hidden="true"><use href="#icon-x"/></svg></button>
+    <div class="reward-modal-icon" id="rm-icon" aria-hidden="true"><svg width="28" height="28"><use href="#icon-trophy"/></svg></div>
     <h2 class="reward-modal-title" id="rm-title">Selamat!</h2>
     <p class="reward-modal-desc" id="rm-desc">Kamu berhasil mencapai milestone!</p>
-    <button class="btn btn-primary" data-action="closeRewardModal()"><svg width="15" height="15" style="vertical-align:-2px;margin-right:6px"><use href="#icon-check-circle"/></svg>Awesome!</button>
+    <div class="reward-modal-streak"><strong id="rm-streak">1</strong><span>hari berturut-turut</span><svg width="20" height="20" aria-hidden="true"><use href="#icon-check-circle"/></svg></div>
+    <button type="button" class="reward-modal-continue" data-action="closeRewardModal()">Lanjutkan</button>
   </div>
 </div>
 
@@ -721,6 +718,18 @@
      KONTEN UTAMA
      ------------------------------------------ -->
 <main class="main" id="main-content">
+  <header class="desktop-toolbar" aria-label="Kontrol tampilan">
+    <button type="button" class="sidebar-desktop-toggle" id="sidebar-desktop-toggle" data-action="toggleSidebar()" aria-controls="sidebar" aria-expanded="true" aria-label="Sembunyikan sidebar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M5.5 8h1M5.5 12h1"/></svg>
+      <span>Menu</span>
+    </button>
+    <div id="auth-widget-desktop" class="auth-widget-desktop">
+      <button type="button" data-action="toggleNotificationCenter()" aria-label="Buka notifikasi" aria-expanded="false" aria-controls="notification-center-panel" class="desktop-notification-btn notification-trigger-btn" id="notification-trigger-desktop">
+        <svg width="18" height="18" aria-hidden="true"><use href="#icon-bell"/></svg>
+        <span class="notification-badge" id="notification-badge-desktop" hidden>0</span>
+      </button>
+    </div>
+  </header>
 
   <!-- -- DASHBOARD --------------------------- -->
   <div id="page-dashboard" class="page active" role="region" aria-label="Dashboard">
@@ -903,6 +912,7 @@
           <div class="card-title dashboard-card-title dashboard-menstruasi-title"><svg width="14" height="14"><use href="#icon-siklus"/></svg>Tracker Menstruasi</div>
           <div class="dashboard-menstruasi-body">
             <div class="dashboard-cycle-ring" id="dash-mens-ring" style="--value:0">
+              <svg viewBox="0 0 72 72" aria-hidden="true"><circle class="dashboard-cycle-track" cx="36" cy="36" r="29"/><circle class="dashboard-cycle-progress" cx="36" cy="36" r="29" pathLength="100"/></svg>
               <span id="dash-mens-ring-label">0%</span>
             </div>
             <div class="dashboard-mens-phase">
@@ -992,49 +1002,36 @@
       <div class="dashboard-main-column">
 
         <section aria-label="Ringkasan metrik" class="dashboard-metric-row">
-          <div class="metric-card cat-habit dashboard-metric-card" data-action="showPage('habit',navBtn(2))" role="button" tabindex="0"
-               data-onenter-page="habit" data-onenter-nav="2"
+          <button type="button" class="dashboard-summary-item" data-action="showPage('habit',navBtn(2))"
                aria-label="Habit selesai - klik untuk lihat detail">
-            <div class="metric-icon cat-habit" aria-hidden="true"><svg width="22" height="22"><use href="#icon-check-circle"/></svg></div>
-            <div class="metric-lbl">Habit Selesai</div>
-            <div class="metric-val" id="d-habit" aria-live="polite">0/0</div>
-            <div class="dashboard-metric-note" id="dash-habit-note">Hari ini</div>
-            <div class="dashboard-mini-progress"><span id="dash-habit-progress-fill"></span></div>
-          </div>
-          <div class="metric-card cat-target dashboard-metric-card" data-action="showPage('target',navBtn(1))" role="button" tabindex="0"
-               data-onenter-page="target" data-onenter-nav="1"
+            <span class="metric-lbl">Habit selesai</span>
+            <span class="metric-val" id="d-habit" aria-live="polite">0/0</span>
+            <span class="dashboard-metric-note" id="dash-habit-note">Hari ini</span>
+          </button>
+          <button type="button" class="dashboard-summary-item" data-action="showPage('target',navBtn(1))"
                aria-label="Target progress - klik untuk lihat detail">
-            <div class="metric-icon cat-target" aria-hidden="true"><svg width="22" height="22"><use href="#icon-target"/></svg></div>
-            <div class="metric-lbl">Target Progress</div>
-            <div class="metric-val" id="dash-target-progress" aria-live="polite">0%</div>
-            <div class="dashboard-metric-note" id="d-target">0/0 selesai</div>
-            <div class="dashboard-mini-progress dashboard-mini-progress--target"><span id="dash-target-progress-fill"></span></div>
-          </div>
-          <div class="metric-card cat-learning dashboard-metric-card" data-action="showPage('learning',this)" role="button" tabindex="0"
+            <span class="metric-lbl">Progres target</span>
+            <span class="metric-val" id="dash-target-progress" aria-live="polite">0%</span>
+            <span class="dashboard-metric-note" id="d-target">0/0 selesai</span>
+          </button>
+          <button type="button" class="dashboard-summary-item" data-action="showPage('learning',this)"
                aria-label="Focus time hari ini - klik untuk lihat detail">
-            <div class="metric-icon cat-learning" aria-hidden="true"><svg width="22" height="22"><use href="#icon-clock"/></svg></div>
-            <div class="metric-lbl">Focus Time</div>
-            <div class="metric-val" id="dash-focus-time-card" aria-live="polite">0m</div>
-            <div class="dashboard-metric-note">Waktu fokus hari ini</div>
-            <div class="dashboard-mini-progress dashboard-mini-progress--focus"><span id="dash-focus-progress-fill"></span></div>
-          </div>
-          <div class="metric-card cat-todo dashboard-metric-card" data-action="showPage('todo',navBtn(3))" role="button" tabindex="0"
-               data-onenter-page="todo" data-onenter-nav="3"
+            <span class="metric-lbl">Waktu fokus</span>
+            <span class="metric-val" id="dash-focus-time-card" aria-live="polite">0m</span>
+            <span class="dashboard-metric-note">Waktu fokus hari ini</span>
+          </button>
+          <button type="button" class="dashboard-summary-item" data-action="showPage('todo',navBtn(3))"
                aria-label="Task selesai - klik untuk lihat detail">
-            <div class="metric-icon cat-todo" aria-hidden="true"><svg width="22" height="22"><use href="#icon-todo"/></svg></div>
-            <div class="metric-lbl">Task Selesai</div>
-            <div class="metric-val" id="d-todo" aria-live="polite">0/0</div>
-            <div class="dashboard-metric-note" id="dash-todo-note">Semua tugas selesai?</div>
-            <div class="dashboard-mini-progress dashboard-mini-progress--todo"><span id="dash-todo-progress-fill"></span></div>
-          </div>
-          <div class="metric-card cat-mood dashboard-metric-card" data-action="showPage('emosi',this)" role="button" tabindex="0"
+            <span class="metric-lbl">Tugas selesai</span>
+            <span class="metric-val" id="d-todo" aria-live="polite">0/0</span>
+            <span class="dashboard-metric-note" id="dash-todo-note">Semua tugas selesai?</span>
+          </button>
+          <button type="button" class="dashboard-summary-item" data-action="showPage('emosi',this)"
                aria-label="Mood hari ini - klik untuk lihat detail">
-            <div class="metric-icon cat-mood" aria-hidden="true"><svg width="22" height="22"><use href="#icon-emosi"/></svg></div>
-            <div class="metric-lbl">Mood Hari Ini</div>
-            <div class="metric-val metric-val--text" id="dash-mood-card" aria-live="polite">Belum</div>
-            <div class="dashboard-metric-note">Mood positif</div>
-            <div class="dashboard-mini-progress dashboard-mini-progress--mood"><span id="dash-mood-progress-fill"></span></div>
-          </div>
+            <span class="metric-lbl">Mood hari ini</span>
+            <span class="metric-val metric-val--text" id="dash-mood-card" aria-live="polite">Belum</span>
+            <span class="dashboard-metric-note">Catatan hari ini</span>
+          </button>
         </section>
 
         <div class="dashboard-lower-grid">
@@ -1743,17 +1740,17 @@
     <!-- Ringkasan Siklus -->
     <section class="grid3" style="margin-bottom:16px" aria-label="Ringkasan siklus">
       <div class="metric-card">
-        <div class="metric-icon" style="background:rgba(236,72,153,.15);color:#ec4899" aria-hidden="true"><svg width="22" height="22"><use href="#icon-calendar"/></svg></div>
+        <div class="metric-icon" aria-hidden="true"><svg width="22" height="22"><use href="#icon-calendar"/></svg></div>
         <div class="metric-val" id="mens-last-period" aria-live="polite">—</div>
         <div class="metric-lbl">Menstruasi Terakhir</div>
       </div>
       <div class="metric-card">
-        <div class="metric-icon" style="background:rgba(168,85,247,.15);color:#a855f7" aria-hidden="true"><svg width="22" height="22"><use href="#icon-cycle"/></svg></div>
+        <div class="metric-icon" aria-hidden="true"><svg width="22" height="22"><use href="#icon-cycle"/></svg></div>
         <div class="metric-val" id="mens-cycle-avg" aria-live="polite">—</div>
         <div class="metric-lbl">Rata-rata Siklus</div>
       </div>
       <div class="metric-card">
-        <div class="metric-icon" style="background:rgba(234,179,8,.15);color:#eab308" aria-hidden="true"><svg width="22" height="22"><use href="#icon-egg"/></svg></div>
+        <div class="metric-icon" aria-hidden="true"><svg width="22" height="22"><use href="#icon-egg"/></svg></div>
         <div class="metric-val" id="mens-next-ovulasi" aria-live="polite">—</div>
         <div class="metric-lbl">Perkiraan Ovulasi</div>
       </div>
@@ -2032,7 +2029,7 @@
       <div style="font-size:13px;color:var(--text2);line-height:1.8">
         <div><span style="color:var(--text3)">Aplikasi</span> &nbsp; Trackify Personal Dashboard</div>
         <div><span style="color:var(--text3)">Versi</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2.6.0</div>
-        <div><span style="color:var(--text3)">Storage</span> &nbsp;&nbsp; localStorage (browser lokal)</div>
+        <div><span style="color:var(--text3)">Storage</span> &nbsp;&nbsp; Browser lokal; Firebase saat login</div>
       </div>
     </section>
   </div>
@@ -2041,88 +2038,118 @@
   <div id="page-privacy" class="page" role="region" aria-label="Privasi dan Kebijakan">
     <div class="page-header">
       <div>
-        <h1 class="page-title"><svg width="20" height="20" style="vertical-align:-3px;margin-right:8px;color:var(--accent)"><use href="#icon-info"/></svg>Privasi &amp; Kebijakan</h1>
-        <p class="page-subtitle">Kebijakan privasi dan ketentuan penggunaan Trackify</p>
+        <h1 class="page-title"><svg width="20" height="20" style="vertical-align:-3px;margin-right:8px;color:var(--accent)" aria-hidden="true"><use href="#icon-info"/></svg>Privasi &amp; Kebijakan</h1>
+        <p class="page-subtitle">Cara Trackify menggunakan data dan ketentuan penggunaan aplikasi.</p>
+        <p class="privacy-updated">Terakhir diperbarui: <time datetime="2026-10-21">21 Oktober 2026</time></p>
       </div>
     </div>
 
     <section class="card" aria-label="Ringkasan kebijakan">
-      <div class="card-title"><svg width="14" height="14"><use href="#icon-check-circle"/></svg>Ringkasan</div>
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-check-circle"/></svg>Ringkasan</h2>
       <div class="privacy-highlights">
         <div class="privacy-highlight privacy-highlight--green">
-          <div class="privacy-highlight-title">Data Tersimpan Lokal</div>
-          <div class="privacy-highlight-copy">Semua data tersimpan di browser atau akun Google kamu sendiri - tidak ada server pihak ketiga.</div>
+          <div class="privacy-highlight-title">Bisa Dipakai Tanpa Login</div>
+          <div class="privacy-highlight-copy">Catatan disimpan di browser. Login Google bersifat opsional untuk sinkronisasi ke cloud Trackify.</div>
         </div>
         <div class="privacy-highlight privacy-highlight--blue">
-          <div class="privacy-highlight-title">Tanpa Iklan</div>
-          <div class="privacy-highlight-copy">Trackify tidak menampilkan iklan dan tidak menjual data penggunamu ke pihak manapun.</div>
+          <div class="privacy-highlight-title">Layanan yang Terlibat</div>
+          <div class="privacy-highlight-copy">Trackify memakai Firebase dan Vercel. Feedback yang kamu kirim diteruskan ke pengelola melalui Telegram.</div>
         </div>
         <div class="privacy-highlight privacy-highlight--amber">
-          <div class="privacy-highlight-title">Kamu Kendali Penuh</div>
-          <div class="privacy-highlight-copy">Hapus, export, atau reset data kapan saja melalui menu Settings.</div>
+          <div class="privacy-highlight-title">Pilihan atas Datamu</div>
+          <div class="privacy-highlight-copy">Kamu bisa mengubah, mengekspor, dan mereset catatan. Reset catatan berbeda dengan penghapusan akun.</div>
         </div>
       </div>
     </section>
 
-    <section class="card" aria-label="Pengumpulan data">
-      <div class="card-title"><svg width="14" height="14"><use href="#icon-database"/></svg>Data yang Disimpan</div>
-      <div class="privacy-copy privacy-copy--relaxed">
-        <p>Trackify menyimpan data berikut <strong class="text-emphasis">hanya di perangkatmu</strong> (localStorage) atau di akun Firebase-mu jika kamu login:</p>
-        <ul class="privacy-list">
-          <li>Target hidup, habit tracker, dan to-do list</li>
-          <li>Jurnal harian, refleksi mingguan, dan catatan emosi</li>
-          <li>Sesi belajar dan catatan komunikasi sosial</li>
-          <li>Data siklus menstruasi dan gejala kesehatan</li>
-          <li>Streak, reward, dan riwayat check-in</li>
-        </ul>
-        <p>Kami <strong style="color:var(--red)">tidak</strong> mengumpulkan, menjual, atau membagikan data pribadimu kepada pihak ketiga manapun.</p>
-      </div>
-    </section>
-
-    <section class="card" aria-label="Autentikasi Google">
-      <div class="card-title"><svg width="14" height="14"><use href="#icon-check-circle"/></svg>Login dengan Google</div>
+    <section class="card" aria-label="Data dan tujuan penggunaan">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-database"/></svg>Data &amp; Tujuan Penggunaan</h2>
       <div class="privacy-copy">
-        <p>Jika kamu memilih untuk login dengan Google:</p>
+        <p>Data yang kamu masukkan digunakan untuk menjalankan fitur pencatatan dan menampilkan ringkasan pribadi:</p>
         <ul class="privacy-list">
-          <li>Kami menyimpan nama, email, dan foto profil Google-mu untuk identifikasi akun</li>
-          <li>Data disinkronisasi ke Firestore (Google Firebase) yang dikelola oleh Google</li>
-          <li>Kamu bisa logout kapan saja dan data lokal akan dihapus dari tampilan</li>
-          <li>Login bersifat opsional - tanpa login, data tetap tersimpan di localStorage browser</li>
+          <li>Target, habit, tugas, sesi belajar, jurnal, refleksi, serta catatan sosial dan emosi.</li>
+          <li>Siklus menstruasi, gejala, dan catatan kesehatan yang kamu pilih untuk disimpan.</li>
+          <li>Riwayat check-in, streak, dan progres pencapaian.</li>
+          <li>Preferensi aplikasi, termasuk tema, tampilan sidebar, quick actions, serta pengaturan dan riwayat notifikasi.</li>
         </ul>
+        <p>Trackify tidak menampilkan iklan dan tidak menjual catatan pribadimu. Data tertentu diproses oleh penyedia layanan yang dijelaskan di bawah untuk menjalankan fitur aplikasi.</p>
       </div>
     </section>
 
-    <section class="card" aria-label="Keamanan data">
-      <div class="card-title"><svg width="14" height="14"><use href="#icon-warning"/></svg>Keamanan &amp; Tanggung Jawab</div>
+    <section class="card" aria-label="Penyimpanan lokal dan login Google">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-database"/></svg>Penyimpanan &amp; Login Google</h2>
+      <div class="privacy-copy">
+        <p><strong class="text-emphasis">Tanpa login:</strong> catatan dan preferensi disimpan di penyimpanan browser (localStorage). Cache aplikasi membantu memuat tampilan saat koneksi terbatas. Perangkat atau browser lain tidak otomatis memiliki salinan data lokalmu.</p>
+        <p><strong class="text-emphasis">Saat login Google:</strong> Firebase Authentication mengenali akunmu. ID akun, nama, email, foto profil, dan waktu login disimpan sebagai profil. Catatan yang tersinkron disimpan di Cloud Firestore dalam proyek Firebase layanan Trackify, bukan di penyimpanan pribadi akun Google-mu.</p>
+        <p>Data cloud dapat diakses secara administratif oleh pengelola layanan untuk pengoperasian dan penanganan permintaan data. Logout tidak menghapus data cloud; salinan catatan lokal dapat dikosongkan, sementara beberapa preferensi dan cache browser tetap tersimpan.</p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Notifikasi dan izin browser">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-bell"/></svg>Notifikasi &amp; Izin Browser</h2>
+      <div class="privacy-copy">
+        <p>Notifikasi memerlukan izin browser. Preferensi, jadwal pengingat, dan riwayat notifikasi disimpan di perangkat dan dapat disinkronkan ke Firebase saat kamu login.</p>
+        <p>Isi notifikasi dapat terlihat di layar perangkat. Kamu dapat mematikan pengingat melalui Pengaturan dan mencabut izin notifikasi melalui pengaturan situs di browser.</p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Feedback dan penyedia layanan">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-feedback"/></svg>Feedback &amp; Penyedia Layanan</h2>
+      <div class="privacy-copy">
+        <p>Saat kamu menekan Kirim Feedback, jenis masukan, pesan, waktu pengiriman, serta nama dan email jika diisi dikirim melalui server Trackify di Vercel ke Telegram pengelola. Nama dan email bersifat opsional. Hindari menyertakan kata sandi atau catatan kesehatan yang tidak diperlukan dalam pesan.</p>
+        <ul class="privacy-list">
+          <li><a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">Google Firebase</a> mendukung login, penyimpanan cloud, serta sinkronisasi preferensi dan riwayat notifikasi.</li>
+          <li><a href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noopener noreferrer">Vercel</a> menyediakan hosting dan pemrosesan permintaan server. Informasi teknis seperti alamat IP dan log permintaan dapat diproses untuk pengoperasian dan keamanan layanan.</li>
+          <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Fonts</a> dan <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare/CDNJS</a> digunakan untuk memuat font dan pustaka aplikasi. Browser dapat menghubungi layanan ini meskipun kamu belum login.</li>
+          <li><a href="https://telegram.org/privacy" target="_blank" rel="noopener noreferrer">Telegram</a> memproses pesan feedback yang diteruskan ke pengelola.</li>
+        </ul>
+        <p>Pemrosesan oleh masing-masing penyedia mengikuti kebijakannya sendiri dan dapat melibatkan server di luar negara tempat kamu mengakses Trackify.</p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Penyimpanan dan penghapusan data">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-trash"/></svg>Penyimpanan, Export &amp; Penghapusan</h2>
       <div class="privacy-copy">
         <ul class="privacy-list">
-          <li>Data yang tersimpan di localStorage bisa diakses oleh siapapun yang menggunakan browser yang sama - jaga keamanan perangkatmu.</li>
-          <li>Trackify tidak bertanggung jawab atas kehilangan data akibat penghapusan cache, penggantian perangkat, atau masalah teknis browser.</li>
-          <li>Kami menyarankan melakukan export data secara berkala melalui menu <strong class="text-emphasis">Settings ? Backup &amp; Restore</strong>.</li>
-          <li>Informasi kesehatan yang dicatat (siklus, gejala, emosi) bersifat pribadi dan hanya untuk kebutuhan pelacakan mandiri - bukan pengganti diagnosis medis.</li>
+          <li>Kamu dapat mengubah catatan, menghapus data per bagian, dan membuat backup JSON melalui Pengaturan.</li>
+          <li>Data lokal tersedia selama masih tersimpan di browser. Menghapus data situs, memakai mode privat, atau berpindah perangkat dapat membuat salinan lokal tidak tersedia.</li>
+          <li>Data cloud tetap tersimpan sampai penghapusan berhasil diproses. Jika kamu login, perubahan dan reset catatan dikirim melalui sinkronisasi. Saat offline atau sinkronisasi gagal, salinan cloud belum tentu ikut berubah.</li>
+          <li><strong class="text-emphasis">Reset catatan tidak menghapus akun Google/Firebase, profil akun, seluruh preferensi notifikasi, atau feedback yang sudah terkirim.</strong> Aplikasi belum menyediakan tombol penghapusan akun secara mandiri.</li>
         </ul>
+        <p>Untuk meminta akses, koreksi, atau penghapusan data akun dan feedback, hubungi pengelola melalui email di bagian Kontak. Verifikasi kepemilikan akun mungkin diperlukan. Retensi log dan cadangan infrastruktur mengikuti pengelolaan penyedia layanan; jangan menganggap reset catatan menghapus seluruh salinan tersebut.</p>
       </div>
-    </section>
-
-    <section class="card" aria-label="Hak pengguna">
-      <div class="card-title"><svg width="14" height="14"><use href="#icon-target"/></svg>Hak Penggunamu</div>
-      <div class="privacy-copy" style="margin-bottom:14px">Kamu memiliki hak penuh atas datamu:</div>
       <div class="privacy-actions">
-        <button class="btn" data-action="showPage('settings',navBtn(11))" style="font-size:12px">
-          <svg width="13" height="13"><use href="#icon-upload"/></svg>Export Data
-        </button>
-        <button class="btn btn-danger" data-action="resetAllData()" style="font-size:12px">
-          <svg width="13" height="13"><use href="#icon-trash"/></svg>Hapus Semua Data
-        </button>
+        <button type="button" class="btn" data-action="showPage('settings',navBtn(11))"><svg width="14" height="14" aria-hidden="true"><use href="#icon-settings"/></svg>Buka Pengaturan Data</button>
+        <button type="button" class="btn btn-danger" data-action="resetAllData()"><svg width="14" height="14" aria-hidden="true"><use href="#icon-trash"/></svg>Reset Catatan Aplikasi</button>
       </div>
     </section>
 
-    <section class="card" aria-label="Perubahan kebijakan">
-      <div class="card-title"><svg width="14" height="14"><use href="#icon-calendar"/></svg>Pembaruan Kebijakan</div>
+    <section class="card" aria-label="Keamanan dan data kesehatan">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-warning"/></svg>Keamanan &amp; Data Kesehatan</h2>
       <div class="privacy-copy">
-        Kebijakan ini berlaku sejak Trackify versi 2.6.0. Perubahan kebijakan privasi akan diinformasikan melalui pembaruan aplikasi. Dengan menggunakan Trackify, kamu menyetujui ketentuan yang tercantum di halaman ini.
+        <p>Orang yang dapat membuka browser dan profil perangkat yang sama dapat mengakses catatan lokal. File export JSON tidak dilindungi kata sandi oleh Trackify. Simpan backup di tempat yang kamu percaya, terutama jika memuat jurnal, emosi, atau data kesehatan.</p>
+        <p>Catatan kesehatan dan perkiraan siklus ditujukan untuk pelacakan pribadi, bukan layanan diagnosis atau konsultasi medis. Kamu dapat memilih untuk tidak menggunakan fitur ini.</p>
       </div>
-      <div class="privacy-updated">Terakhir diperbarui: Mei 2026 - Trackify v2.6.0</div>
+    </section>
+
+    <section class="card" aria-label="Ketentuan penggunaan">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-info"/></svg>Ketentuan Penggunaan</h2>
+      <div class="privacy-copy">
+        <ul class="privacy-list">
+          <li>Gunakan Trackify untuk catatanmu sendiri atau informasi yang memang berhak kamu simpan. Jangan membagikan data pribadi orang lain tanpa izin.</li>
+          <li>Jangan menggunakan fitur feedback untuk spam atau mencoba mengganggu keamanan dan ketersediaan layanan.</li>
+          <li>Ketersediaan fitur online bergantung pada koneksi, browser, dan penyedia layanan. Simpan backup sebelum mereset atau memindahkan data.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Kontak dan pembaruan kebijakan">
+      <h2 class="card-title"><svg width="16" height="16" aria-hidden="true"><use href="#icon-feedback"/></svg>Kontak &amp; Pembaruan</h2>
+      <div class="privacy-copy">
+        <p>Pertanyaan privasi dan permintaan terkait data dapat dikirim kepada pengelola Trackify melalui <a href="mailto:shaulaabyte@gmail.com">shaulaabyte@gmail.com</a>. Jelaskan permintaanmu dan akun yang terkait tanpa menyertakan kata sandi.</p>
+        <p>Jika cara pemrosesan data atau fitur berubah, isi halaman ini akan diperbarui beserta tanggal revisinya. Baca kembali halaman ini untuk mengetahui kebijakan terbaru.</p>
+      </div>
+      <p class="privacy-updated">Revisi <time datetime="2026-10-21">21 Oktober 2026</time> &middot; Trackify v2.6.0</p>
     </section>
   </div>
 
@@ -2248,14 +2275,6 @@
     </div>
     <div id="notification-center-body" class="notification-center-body" aria-live="polite"></div>
   </div>
-</div>
-
-<!-- Desktop Notification (pojok kanan atas, hanya di desktop) -->
-<div id="auth-widget-desktop" class="auth-widget-desktop">
-  <button data-action="toggleNotificationCenter()" aria-label="Buka notifikasi" aria-expanded="false" aria-controls="notification-center-panel" class="desktop-notification-btn notification-trigger-btn" id="notification-trigger-desktop">
-    <svg width="18" height="18"><use href="#icon-bell"/></svg>
-    <span class="notification-badge" id="notification-badge-desktop" hidden>0</span>
-  </button>
 </div>
 
 <!-- ------------------------------------------

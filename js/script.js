@@ -48,7 +48,7 @@ async function ensureChartJs() {
 /** Register Service Worker untuk caching & offline support */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
       .then(reg => console.log('[Trackify] Service Worker registered:', reg.scope))
       .catch(err => console.warn('[Trackify] Service Worker registration failed:', err));
   });
@@ -814,6 +814,7 @@ function initApp() {
   selectedCat = '';
 
   applyTheme(state.theme);
+  initSidebar();
   setDefaultFormDates();
   renderAll();
   renderDashboardDate();
@@ -1135,20 +1136,51 @@ function removeQuickAction(index) {
   showToast('Quick action dihapus');
 }
 
-// Sidebar mobile
+// Sidebar: desktop preference and mobile drawer are independent.
+const sidebarMedia = window.matchMedia('(max-width: 900px)');
+
+function syncSidebar() {
+  const mobileOpen = document.getElementById('sidebar')?.classList.contains('open');
+  const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
+  const visible = sidebarMedia.matches ? mobileOpen : !collapsed;
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.inert = !visible;
+  document.getElementById('sidebar-desktop-toggle')?.setAttribute('aria-expanded', String(!collapsed));
+  document.getElementById('sidebar-desktop-toggle')?.setAttribute('aria-label', collapsed ? 'Tampilkan sidebar' : 'Sembunyikan sidebar');
+  document.getElementById('hamburger')?.setAttribute('aria-label', mobileOpen ? 'Tutup navigasi' : 'Buka navigasi');
+}
+
+function initSidebar() {
+  try {
+    document.documentElement.classList.toggle('sidebar-collapsed', localStorage.getItem('Trackify_sidebarCollapsed') === 'true');
+  } catch (e) {}
+  syncSidebar();
+  sidebarMedia.addEventListener('change', () => closeSidebar());
+}
+
 function toggleSidebar() {
+  if (!sidebarMedia.matches) {
+    const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+    try { localStorage.setItem('Trackify_sidebarCollapsed', String(collapsed)); } catch (e) {}
+    syncSidebar();
+    return;
+  }
   const open = document.getElementById('sidebar')?.classList.toggle('open');
   document.getElementById('hamburger')?.classList.toggle('open', open);
   document.getElementById('overlay')?.classList.toggle('show', open);
   document.getElementById('hamburger')?.setAttribute('aria-expanded', String(!!open));
   document.body.classList.toggle('sidebar-open', !!open);
+  syncSidebar();
 }
 function closeSidebar() {
+  const wasOpen = document.getElementById('sidebar')?.classList.contains('open');
   document.getElementById('sidebar')?.classList.remove('open');
   document.getElementById('hamburger')?.classList.remove('open');
   document.getElementById('overlay')?.classList.remove('show');
   document.getElementById('hamburger')?.setAttribute('aria-expanded', 'false');
   document.body.classList.remove('sidebar-open');
+  syncSidebar();
+  if (wasOpen && sidebarMedia.matches) document.getElementById('hamburger')?.focus();
 }
 
 // Loading overlay — ditampilkan saat fetch Firebase berlangsung
@@ -1188,25 +1220,28 @@ function showToast(msg, ms = 2600) {
 }
 
 // Modal reward
+let rewardModalOpener = null;
 function showRewardModal(iconId, title, desc) {
   const bg = document.getElementById('reward-modal-bg');
   if (!bg) return;
+  rewardModalOpener = document.activeElement;
   const rmIcon = document.getElementById('rm-icon');
-  if (rmIcon) rmIcon.innerHTML = `<svg width="52" height="52" style="color:#fbbf24"><use href="#${iconId}"/></svg>`;
-  const rmConf = document.getElementById('rm-confetti');
-  if (rmConf) rmConf.innerHTML = `
-    <svg width="22" height="22" style="color:#a78bfa"><use href="#ms-icon-7"/></svg>
-    <svg width="28" height="28" style="color:#fbbf24"><use href="#${iconId}"/></svg>
-    <svg width="22" height="22" style="color:#4ade80"><use href="#ms-icon-7"/></svg>`;
+  if (rmIcon) rmIcon.innerHTML = `<svg width="28" height="28"><use href="#${iconId}"/></svg>`;
   setText('rm-title', title); setText('rm-desc', desc);
+  setText('rm-streak', state.streak);
   bg.classList.add('show');
   bg.setAttribute('aria-hidden', 'false');
-  bg.querySelector('.reward-modal')?.focus?.();
+  document.body.classList.add('reward-modal-open');
+  bg.querySelector('.reward-modal-continue')?.focus();
 }
 function closeRewardModal() {
   const bg = document.getElementById('reward-modal-bg');
+  if (!bg?.classList.contains('show')) return;
   bg?.classList.remove('show');
   bg?.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('reward-modal-open');
+  if (rewardModalOpener?.isConnected) rewardModalOpener.focus();
+  rewardModalOpener = null;
 }
 
 // Konfirmasi hapus
@@ -2027,17 +2062,6 @@ function updateDashboard() {
   const qaSub = document.getElementById('qa-streak-sub');
   if (qaSub) qaSub.textContent = `${state.streak} hari streak`;
 
-  [
-    ['dash-habit-progress-fill', todayHabit.percent],
-    ['dash-target-progress-fill', targetPercent],
-    ['dash-todo-progress-fill', todoPercent],
-    ['dash-focus-progress-fill', Math.min(100, Math.round(focusMinutes / 180 * 100))],
-    ['dash-mood-progress-fill', moodLabel === 'Belum' ? 0 : 100],
-  ].forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.style.width = `${Math.max(0, Math.min(100, value))}%`;
-  });
-
   const ring = document.getElementById('dash-progress-ring');
   if (ring) ring.style.setProperty('--value', todayHabit.percent);
 
@@ -2761,7 +2785,7 @@ function claimDailyStreak() {
   const s = state.streak;
   if (MILESTONES[s] && (s > 1 || state.checkins.length === 1)) {
     const [icon, title, desc] = MILESTONES[s];
-    showRewardModal(icon, null, title, desc);
+    showRewardModal(icon, title, desc);
   } else {
     showToast(`✓ Check-in berhasil! Streak: ${s} hari 🔥`);
   }
@@ -4213,6 +4237,14 @@ function closeNotificationCenter() {
 }
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    const buttons = document.querySelectorAll('#reward-modal-bg.show .reward-modal button');
+    if (buttons.length) {
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
   if (e.key === 'Escape') { closeSidebar(); closeRewardModal(); closeContextMenu(); closeSearch(); closeNotificationCenter(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
 });
