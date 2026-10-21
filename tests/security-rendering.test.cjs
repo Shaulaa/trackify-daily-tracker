@@ -7,8 +7,9 @@ function slice(start, end) { return script.slice(script.indexOf(start), script.i
 const helpers = slice('function escapeHTML(', '/* ── Daily quotes');
 function renderContext(state, ids) {
   const nodes = Object.fromEntries(ids.map(id => [id, { innerHTML: '', setAttribute() {} }]));
-  const ctx = vm.createContext({state, document:{getElementById:id=>nodes[id]||null}, setTimeout(){}, today:()=> '2026-10-21', registerAllLongPress(){}});
+  const ctx = vm.createContext({state, document:{getElementById:id=>nodes[id]||null,querySelector:()=>null}, setTimeout(){}, today:()=> '2026-10-21', registerAllLongPress(){}});
   vm.runInContext(helpers, ctx);
+  vm.runInContext(slice('function normalizeDashboardWidgets(', 'function normalizeState('), ctx);
   return {ctx,nodes};
 }
 const payload = '\"><img src=x onerror=alert(1)>';

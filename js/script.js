@@ -192,6 +192,7 @@ async function loadAllData() {
   const localHabitData = isPlainObject(state.habitData) ? { ...state.habitData } : {};
   const localHabitRows = Array.isArray(habitRows) ? [...habitRows] : [];
   const localQuickActions = normalizeQuickActions(state.quickActions);
+  const localDashboardWidgets = normalizeDashboardWidgets(state.dashboardWidgets);
   let shouldResyncHabits = false;
   let shouldResyncDashboardPrefs = false;
   try {
@@ -294,6 +295,9 @@ async function loadAllData() {
     const cloudQuickActions = normalizeQuickActions(streakData.quickActions);
     state.quickActions = cloudQuickActions.length ? cloudQuickActions : localQuickActions;
     if (localQuickActions.length && !cloudQuickActions.length) shouldResyncDashboardPrefs = true;
+    const cloudDashboardWidgets = normalizeDashboardWidgets(streakData.dashboardWidgets);
+    state.dashboardWidgets = cloudDashboardWidgets.menstruasi === null ? localDashboardWidgets : cloudDashboardWidgets;
+    if (cloudDashboardWidgets.menstruasi === null && localDashboardWidgets.menstruasi !== null) shouldResyncDashboardPrefs = true;
     saveState();
     markCloudStateAsSynced();
     if (shouldResyncHabits || shouldResyncDashboardPrefs) requestFirebaseSync({ immediate: true });
@@ -377,18 +381,18 @@ function normalizeDateList(value, fallback = []) {
 
 const DASHBOARD_QUICK_ACTION_OPTIONS = [
   { id: 'target', label: 'Tambah Target', page: 'target', icon: 'icon-qa-target', className: 'qa-icon--green' },
-  { id: 'habit', label: 'Check Habit', page: 'habit', icon: 'icon-qa-habit', className: 'qa-icon--green' },
+  { id: 'habit', label: 'Tandai Habit', page: 'habit', icon: 'icon-qa-habit', className: 'qa-icon--green' },
   { id: 'todo', label: 'Tambah Tugas', page: 'todo', icon: 'icon-qa-task', className: 'qa-icon--blue' },
   { id: 'journal', label: 'Tulis Jurnal', page: 'journal', icon: 'icon-journal', className: 'qa-icon--violet' },
   { id: 'learning', label: 'Catat Belajar', page: 'learning', icon: 'icon-qa-belajar', className: 'qa-icon--pink' },
-  { id: 'mood', label: 'Catat Mood', page: 'emosi', icon: 'icon-qa-emosi', className: 'qa-icon--amber' },
+  { id: 'mood', label: 'Catat Suasana Hati', page: 'emosi', icon: 'icon-qa-emosi', className: 'qa-icon--amber' },
   { id: 'reflection', label: 'Refleksi', page: 'reflection', icon: 'icon-qa-refleksi', className: 'qa-icon--lilac' },
-  { id: 'reward', label: 'Lihat Reward', page: 'reward', icon: 'icon-qa-reward', className: 'qa-icon--amber-strong' },
+  { id: 'reward', label: 'Lihat Hadiah', page: 'reward', icon: 'icon-qa-reward', className: 'qa-icon--amber-strong' },
   { id: 'sosial', label: 'Catatan Sosial', page: 'sosial', icon: 'icon-komunikasi', className: 'qa-icon--blue' },
   { id: 'menstruasi', label: 'Siklus', page: 'menstruasi', icon: 'icon-siklus', className: 'qa-icon--pink' },
   { id: 'settings', label: 'Pengaturan', page: 'settings', icon: 'icon-settings', className: 'qa-icon--neutral' },
   { id: 'privacy', label: 'Privasi', page: 'privacy', icon: 'icon-warning', className: 'qa-icon--neutral' },
-  { id: 'feedback', label: 'Feedback', page: 'feedback', icon: 'icon-feedback', className: 'qa-icon--violet' },
+  { id: 'feedback', label: 'Masukan', page: 'feedback', icon: 'icon-feedback', className: 'qa-icon--violet' },
 ];
 
 const DASHBOARD_QUICK_ACTION_BY_ID = Object.fromEntries(
@@ -403,13 +407,30 @@ function normalizeQuickActions(value) {
       const id = typeof item.id === 'string' ? item.id : '';
       const option = DASHBOARD_QUICK_ACTION_BY_ID[id];
       if (!option) return null;
-      const label = typeof item.label === 'string' && item.label.trim()
+      let label = typeof item.label === 'string' && item.label.trim()
         ? item.label.trim().slice(0, 22)
         : option.label;
+      const legacyLabel = { habit: 'Check Habit', mood: 'Catat Mood', reward: 'Lihat Reward', feedback: 'Feedback' }[id];
+      if (label === legacyLabel) label = option.label;
       return { id, label };
     })
     .filter(Boolean)
     .slice(0, 8);
+}
+
+function normalizeDashboardWidgets(raw) {
+  return { menstruasi: typeof raw?.menstruasi === 'boolean' ? raw.menstruasi : null };
+}
+
+function isDashboardMenstruasiEnabled(data = state) {
+  const preference = normalizeDashboardWidgets(data.dashboardWidgets).menstruasi;
+  return preference === null ? !!data.menstruasis?.length : preference;
+}
+
+function setDashboardMenstruasi(control) {
+  state.dashboardWidgets = { menstruasi: !!control.checked };
+  saveAndSync();
+  renderDashboardMenstruasi();
 }
 
 function normalizeState(raw) {
@@ -418,6 +439,7 @@ function normalizeState(raw) {
 
   base.theme = raw.theme === 'light' ? 'light' : 'dark';
   base.quickActions = normalizeQuickActions(raw.quickActions);
+  base.dashboardWidgets = normalizeDashboardWidgets(raw.dashboardWidgets);
 
   base.targets = Array.isArray(raw.targets) ? raw.targets
     .filter(isPlainObject)
@@ -554,15 +576,15 @@ function createDefaultState() {
     // Target Hidup: [{ name, deadline (YYYY-MM-DD), status: 'on_progress'|'done' }]
     targets: [],
 
-    // Habit Tracker
+    // Pelacak Habit
     habits:    [],   // ['Bangun Pagi', ...]
     habitData: {},   // { 'YYYY-MM-DD_idx': 'done'|'skip'|'none' }
     habitRows: [],   // ['YYYY-MM-DD', ...]
 
-    // To-Do List: [{ id, text, done, createdAt }]
+    // Daftar Tugas: [{ id, text, done, createdAt }]
     todos: [],
 
-    // Daily Journal: [{ date, did, good, improve, mood }]
+    // Jurnal Harian: [{ date, did, good, improve, mood }]
     journals:     [],
     selectedMood: '',
 
@@ -583,12 +605,14 @@ function createDefaultState() {
     lastCheckin: '',   // YYYY-MM-DD
     checkins:    [],   // [{ date, streak }]
 
-    // Learning Tracker: [{ date, subject, what, insight, duration, cat }]
+    // Catatan Belajar: [{ date, subject, what, insight, duration, cat }]
     learnings:   [],
     selectedCat: '',
 
     // Dashboard quick action tambahan: [{ id, label }]
     quickActions: [],
+    // null preserves automatic visibility for legacy users with cycle data.
+    dashboardWidgets: { menstruasi: null },
 
     // ID counter untuk todo (agar index tidak bergeser saat delete)
     _nextId: 1
@@ -686,7 +710,8 @@ function buildSyncPayload() {
       lastCheckIn: state.lastCheckin,
       checkIns: state.checkins.map(c => c.date),
       habitRows: [...habitRows],
-      quickActions: normalizeQuickActions(state.quickActions)
+      quickActions: normalizeQuickActions(state.quickActions),
+      dashboardWidgets: normalizeDashboardWidgets(state.dashboardWidgets)
     }
   };
 }
@@ -1048,7 +1073,7 @@ function renderQuickActionModalList() {
   if (!list) return;
   const actions = normalizeQuickActions(state.quickActions);
   if (!actions.length) {
-    list.innerHTML = '<p class="quick-action-modal__empty">Belum ada shortcut tambahan.</p>';
+    list.innerHTML = '<p class="quick-action-modal__empty">Belum ada pintasan tambahan.</p>';
     return;
   }
   list.innerHTML = actions.map((item, index) => {
@@ -1114,7 +1139,7 @@ function saveQuickAction() {
   }
   state.quickActions = normalizeQuickActions(state.quickActions);
   if (state.quickActions.length >= 8) {
-    showToast('Maksimal 8 quick action tambahan');
+    showToast('Maksimal 8 aksi cepat tambahan');
     return;
   }
   const label = (input?.value || '').trim().slice(0, 22) || option.label;
@@ -1123,7 +1148,7 @@ function saveQuickAction() {
   renderCustomQuickActions();
   renderQuickActionModalList();
   if (input) input.value = '';
-  showToast('Quick action ditambahkan');
+  showToast('Aksi cepat ditambahkan');
 }
 
 function removeQuickAction(index) {
@@ -1133,7 +1158,7 @@ function removeQuickAction(index) {
   saveAndSync();
   renderCustomQuickActions();
   renderQuickActionModalList();
-  showToast('Quick action dihapus');
+  showToast('Aksi cepat dihapus');
 }
 
 // Sidebar: desktop preference and mobile drawer are independent.
@@ -1332,7 +1357,7 @@ const ONBOARD_PATHS = [
     focusId: 'todo-input',
     eyebrow: 'Mulai ringan',
     title: 'Rapikan hari ini',
-    desc: 'Tulis satu hal yang perlu selesai dulu. Sisanya bisa menyusul setelah ritmenya kebentuk.',
+    desc: 'Tentukan satu tugas yang ingin kamu selesaikan.',
     cta: 'Buat tugas pertama',
     chips: ['Tugas', 'Deadline', 'Prioritas']
   },
@@ -1345,7 +1370,7 @@ const ONBOARD_PATHS = [
     focusId: 'new-habit',
     eyebrow: 'Bangun ritme',
     title: 'Lacak kebiasaan kecil',
-    desc: 'Pilih kebiasaan yang realistis untuk dicek setiap hari, bukan daftar yang bikin berat duluan.',
+    desc: 'Mulai satu kebiasaan yang mudah diulang.',
     cta: 'Tambah habit pertama',
     chips: ['Check-in', 'Streak', 'Progress']
   },
@@ -1358,19 +1383,14 @@ const ONBOARD_PATHS = [
     focusId: 'j-did',
     eyebrow: 'Pelan tapi jujur',
     title: 'Catat momen hari ini',
-    desc: 'Simpan apa yang terjadi, apa yang terasa baik, dan satu hal yang ingin kamu bawa besok.',
+    desc: 'Simpan cerita dan perasaanmu hari ini.',
     cta: 'Tulis jurnal pertama',
     chips: ['Mood', 'Catatan', 'Pola']
   }
 ];
 
-const ONBOARD_NOTES = [
-  { icon: 'icon-dashboard', title: 'Dashboard akan terisi sendiri', desc: 'Begitu kamu mulai mencatat, ringkasan dan pola akan muncul tanpa setup tambahan.' },
-  { icon: 'icon-save', title: 'Data bisa dibawa pulang', desc: 'Export dan restore tersedia di Settings saat kamu butuh backup.' },
-  { icon: 'icon-search', title: 'Cari cepat saat data mulai banyak', desc: 'Pakai search untuk loncat ke target, tugas, jurnal, atau sesi belajar.' }
-];
-
 let _onboardChoice = ONBOARD_PATHS[0].id;
+let _onboardMenstruasi = false;
 
 function onboardingIcon(iconId, size = 28) {
   return `<svg width="${size}" height="${size}" aria-hidden="true"><use href="#${iconId}"/></svg>`;
@@ -1379,7 +1399,10 @@ function onboardingIcon(iconId, size = 28) {
 function showOnboarding() {
   if (localStorage.getItem(ONBOARD_KEY)) return;
   _onboardChoice = ONBOARD_PATHS[0].id;
+  _onboardMenstruasi = isDashboardMenstruasiEnabled();
   renderOnboarding();
+  document.body.classList.add('onboarding-open');
+  document.querySelector('.onboarding-footer .btn-primary')?.focus({ preventScroll: true });
 }
 
 function isFreshState(data = state) {
@@ -1420,55 +1443,64 @@ function renderOnboarding() {
   backdrop.innerHTML = `
     <div class="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
       <div class="onboarding-hero">
-        <div class="onboarding-kicker">Trackify siap dipakai</div>
-        <div class="onboarding-title" id="onboarding-title">Mulai dari satu langkah yang paling masuk akal.</div>
-        <div class="onboarding-subtitle">Kamu tidak perlu mengisi semuanya hari ini. Pilih pintu masuk yang paling dekat dengan kebutuhanmu sekarang.</div>
+        <h2 class="onboarding-title" id="onboarding-title">Mau mulai dari mana?</h2>
+        <p class="onboarding-subtitle">Pilih satu langkah. Yang lain bisa menyusul.</p>
       </div>
       <div class="onboarding-body">
         <div class="onboarding-paths" aria-label="Pilihan mulai">
           ${ONBOARD_PATHS.map(path => `
-            <button type="button" class="onboarding-path ${path.id === activePath.id ? 'active' : ''} tone-${path.tone}" data-action="onboardSelect('${path.id}')">
+            <button type="button" class="onboarding-path ${path.id === activePath.id ? 'active' : ''} tone-${path.tone}" aria-pressed="${path.id === activePath.id}" data-action="onboardSelect('${path.id}')">
               <span class="onboarding-path-icon">${onboardingIcon(path.icon, 22)}</span>
               <span class="onboarding-path-copy">
-                <span>${escapeHTML(path.eyebrow)}</span>
                 <strong>${escapeHTML(path.title)}</strong>
                 <small>${escapeHTML(path.desc)}</small>
               </span>
             </button>`).join('')}
         </div>
-        <div class="onboarding-preview tone-${activePath.tone}">
-          <div class="onboarding-preview-top">
-            <div class="onboarding-preview-icon">${onboardingIcon(activePath.icon, 24)}</div>
-            <div>
-              <div class="onboarding-preview-label">${escapeHTML(activePath.eyebrow)}</div>
-              <div class="onboarding-preview-title">${escapeHTML(activePath.title)}</div>
-            </div>
-          </div>
-          <div class="onboarding-preview-line"></div>
-          <div class="onboarding-preview-line short"></div>
-          <div class="onboarding-chip-row">
-            ${activePath.chips.map(chip => `<span>${escapeHTML(chip)}</span>`).join('')}
-          </div>
-        </div>
-        <div class="onboarding-notes">
-          ${ONBOARD_NOTES.map(note => `
-            <div class="onboarding-note">
-              <span>${onboardingIcon(note.icon, 17)}</span>
-              <div><strong>${escapeHTML(note.title)}</strong><small>${escapeHTML(note.desc)}</small></div>
-            </div>`).join('')}
-        </div>
+        <label class="dashboard-widget-choice">
+          <input id="onboarding-widget-menstruasi" type="checkbox" ${_onboardMenstruasi ? 'checked' : ''} data-action="onboardToggleMenstruasi(this)">
+          <span><strong>Tampilkan widget menstruasi</strong><small>Opsional. Bisa diubah di Pengaturan kapan saja.</small></span>
+        </label>
       </div>
       <div class="onboarding-footer">
         <button class="btn btn-primary" data-action="onboardStart()">${escapeHTML(activePath.cta)}</button>
-        <button class="onboarding-skip" data-action="onboardSkip()">Nanti saja, langsung masuk</button>
+        <button class="onboarding-skip" data-action="onboardSkip()">Nanti saja</button>
       </div>
     </div>`;
 }
 
 function onboardSelect(pathId) {
+  const scrollTop = document.querySelector('.onboarding-body')?.scrollTop || 0;
   _onboardChoice = getOnboardPath(pathId).id;
   renderOnboarding();
+  const body = document.querySelector('.onboarding-body');
+  if (body) body.scrollTop = scrollTop;
+  document.querySelector('.onboarding-path.active')?.focus({ preventScroll: true });
 }
+
+function onboardToggleMenstruasi(control) {
+  _onboardMenstruasi = !!control.checked;
+}
+
+document.addEventListener('keydown', event => {
+  const modal = document.querySelector('#onboarding-backdrop .onboarding-modal');
+  if (!modal || !document.body.classList.contains('onboarding-open')) return;
+  if (event.key === 'Escape') {
+    onboardSkip();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const controls = modal.querySelectorAll('button:not([disabled]), input:not([disabled])');
+  const first = controls[0];
+  const last = controls[controls.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
+  }
+});
 
 function onboardNext() {
   onboardStart();
@@ -1491,10 +1523,15 @@ function onboardSkip() {
 }
 
 function onboardDone({ silent = false } = {}) {
+  state.dashboardWidgets = { menstruasi: _onboardMenstruasi };
+  saveAndSync();
+  renderDashboardMenstruasi();
+  document.body.classList.remove('onboarding-open');
   localStorage.setItem(ONBOARD_KEY, '1');
   const backdrop = document.getElementById('onboarding-backdrop');
   if (backdrop) {
     backdrop.style.opacity = '0';
+    backdrop.style.pointerEvents = 'none';
     backdrop.style.transition = 'opacity 0.3s ease';
     setTimeout(() => backdrop.remove(), 320);
   }
@@ -1570,16 +1607,16 @@ function renderDashboardDate() {
   const hour = now.getHours();
   let greeting, encouragement;
   if (hour >= 5 && hour < 12) {
-    greeting = 'Good morning';
+    greeting = 'Selamat pagi';
     encouragement = 'Mulai hari dengan tenang dan fokus.';
   } else if (hour >= 12 && hour < 15) {
-    greeting = 'Good afternoon';
+    greeting = 'Selamat siang';
     encouragement = 'Masih ada waktu untuk progres kecil hari ini.';
   } else if (hour >= 15 && hour < 18) {
-    greeting = 'Good evening';
+    greeting = 'Selamat sore';
     encouragement = 'Rapikan harimu pelan-pelan sebelum malam tiba.';
   } else {
-    greeting = 'Good night';
+    greeting = 'Selamat malam';
     encouragement = 'Istirahat yang baik adalah bagian dari progres. Selamat beristirahat.';
   }
 
@@ -1702,7 +1739,7 @@ function updateDashboardLegacy() {
   }
 
   const qaSub = document.getElementById('qa-streak-sub');
-  if (qaSub) qaSub.textContent = `${state.streak} hari streak`;
+  if (qaSub) qaSub.textContent = `${state.streak} hari berturut-turut`;
 
   renderDashboardCharts();
 }
@@ -1821,7 +1858,7 @@ function getDashboardMensRecommendations(phaseText) {
       ['icon-glass', 'Minum air hangat'],
       ['icon-journal', 'Catat gejala'],
       ['icon-habit', 'Stretching ringan'],
-      ['icon-emosi', 'Kelola mood'],
+      ['icon-emosi', 'Kelola suasana hati'],
       ['icon-learning', 'Belajar santai'],
       ['icon-fire', 'Kompres hangat']
     ];
@@ -1844,7 +1881,7 @@ function getDashboardMensRecommendations(phaseText) {
       ['icon-todo', 'Kerjakan prioritas'],
       ['icon-habit', 'Aktivitas outdoor'],
       ['icon-learning', 'Review materi'],
-      ['icon-emosi', 'Catat mood positif'],
+      ['icon-emosi', 'Catat suasana hati positif'],
       ['icon-glass', 'Jaga hidrasi']
     ];
   }
@@ -1873,6 +1910,13 @@ function renderDashboardMensRecommendations(phaseText) {
 }
 
 function renderDashboardMenstruasi() {
+  const enabled = isDashboardMenstruasiEnabled();
+  const card = document.querySelector('.dashboard-menstruasi-card');
+  if (card) card.hidden = !enabled;
+  document.querySelector('.dashboard-top-grid')?.classList.toggle('dashboard-top-grid--without-menstruasi', !enabled);
+  const control = document.getElementById('dashboard-widget-menstruasi');
+  if (control) control.checked = enabled;
+  if (!enabled) return;
   const ring = document.getElementById('dash-mens-ring');
   const stats = getMensStats();
 
@@ -2008,6 +2052,21 @@ function renderDashboardMiniCalendar() {
     <div class="dashboard-mini-calendar__grid">${cells.join('')}</div>`;
 }
 
+function getDashboardOverview(data = state, date = today()) {
+  const records = key => Array.isArray(data[key]) ? data[key] : [];
+  return {
+    hasActivity: ['todos', 'habits', 'targets', 'journals', 'learnings', 'emosis', 'reflections', 'sosials'].some(key => records(key).length > 0),
+    metrics: {
+      habit: records('habits').length > 0,
+      target: records('targets').length > 0,
+      todo: records('todos').length > 0,
+      focus: records('learnings').some(item => item.date === date && parseInt(item.duration, 10) > 0),
+      mood: ['emosis', 'journals'].some(key => records(key).some(item => item.date === date && !!item.mood)),
+      streak: Number(data.streak) > 0,
+    },
+  };
+}
+
 function renderDashboardFocusBars() {
   const el = document.getElementById('dash-focus-bars');
   if (!el) return;
@@ -2022,6 +2081,12 @@ function renderDashboardFocusBars() {
     return { date: ds, minutes };
   });
   const max = Math.max(60, ...days.map(d => d.minutes));
+  const card = document.querySelector('.dashboard-focus-card');
+  if (card) card.hidden = !days.some(day => day.minutes > 0);
+  if (!days.some(day => day.minutes > 0)) {
+    el.innerHTML = '';
+    return;
+  }
   el.innerHTML = days.map(({ date, minutes }) => {
     const height = Math.max(8, Math.round(minutes / max * 100));
     const label = new Date(date + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit' });
@@ -2034,37 +2099,37 @@ function renderDashboardFocusBars() {
 
 function updateDashboard() {
   const td = today();
+  const overview = getDashboardOverview(state, td);
+  const setHidden = (selector, hidden) => {
+    const element = document.querySelector(selector);
+    if (element) element.hidden = hidden;
+  };
+  setHidden('.dashboard-start-card', overview.hasActivity);
+  setHidden('.dashboard-tasks-card', !overview.hasActivity);
+  setHidden('.dashboard-habits-card', !overview.hasActivity);
+  setHidden('.dashboard-summary-card', !overview.hasActivity || !Object.values(overview.metrics).some(Boolean));
+  document.querySelectorAll('[data-dashboard-metric]').forEach(element => {
+    element.hidden = !overview.metrics[element.dataset.dashboardMetric];
+  });
+  setHidden('.dashboard-top-grid .dashboard-calendar-card', !state.habits.length);
+  document.querySelector('.dashboard-top-grid')?.classList.toggle('dashboard-top-grid--calendar-only', !state.habits.length && !isDashboardMenstruasiEnabled());
   const todayHabit = habitCompletionForDate(td);
   const doneTgt = state.targets.filter(t => t.status === 'done').length;
   const targetPercent = state.targets.length ? Math.round(doneTgt / state.targets.length * 100) : 0;
   const doneTodos = state.todos.filter(t => t.done).length;
-  const todoPercent = state.todos.length ? Math.round(doneTodos / state.todos.length * 100) : 0;
   const focusMinutes = getTodayFocusMinutes();
   const focusLabel = formatDashboardMinutes(focusMinutes);
   const moodLabel = getTodayMoodLabel();
 
-  setText('dash-streak-now', `${state.streak} hari`);
-  setText('dash-streak-side', state.streak);
-  setText('dash-hero-habit', `${todayHabit.done}/${todayHabit.total}`);
+  setText('dash-streak-summary', state.streak);
   setText('d-habit', `${todayHabit.done}/${todayHabit.total}`);
-  setText('dash-focus-time', focusLabel);
   setText('dash-focus-time-card', focusLabel);
-  setText('dash-focus-time-total', `${focusLabel} total`);
-  setText('dash-mood', moodLabel);
   setText('dash-mood-card', moodLabel);
   setText('dash-target-progress', `${targetPercent}%`);
-  setText('d-target', `${doneTgt}/${state.targets.length} selesai`);
+  setText('d-target', 'Semua target');
   setText('d-todo', `${doneTodos}/${state.todos.length}`);
-  setText('dash-habit-note', `${todayHabit.percent}% hari ini`);
-  setText('dash-todo-note', state.todos.length ? `${todoPercent}% selesai` : 'Belum ada tugas');
-  setText('dash-progress-percent', `${todayHabit.percent}%`);
-  setText('dash-progress-copy', `${todayHabit.done}/${todayHabit.total} kebiasaan`);
-
-  const qaSub = document.getElementById('qa-streak-sub');
-  if (qaSub) qaSub.textContent = `${state.streak} hari streak`;
-
-  const ring = document.getElementById('dash-progress-ring');
-  if (ring) ring.style.setProperty('--value', todayHabit.percent);
+  setText('dash-habit-note', 'Hari ini');
+  setText('dash-todo-note', 'Semua tugas');
 
   const hp = document.getElementById('d-habit-progress');
   if (hp) {
@@ -3866,6 +3931,7 @@ function exportData() {
       streak:      state.streak,
       lastCheckin: state.lastCheckin,
       checkins:    state.checkins,
+      dashboardWidgets: normalizeDashboardWidgets(state.dashboardWidgets),
     }
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -4155,11 +4221,11 @@ function renderNotificationCenter() {
 
   const alertsHTML = alerts.length
     ? `<div class="notification-center-list">${alerts.map(createNotificationItem).join('')}</div>`
-    : `<div class="notification-center-empty">Belum ada reminder mendesak. Deadline, habit harian, dan prediksi siklus akan muncul di sini.</div>`;
+    : `<div class="notification-center-empty">Belum ada pengingat mendesak. Tenggat tugas, habit harian, dan prediksi siklus akan muncul di sini.</div>`;
 
   const scheduledHTML = scheduled.length
     ? `<div class="notification-center-list">${scheduled.slice(0, 8).map(createNotificationItem).join('')}</div>`
-    : `<div class="notification-center-empty">Belum ada pengingat aktif. Aktifkan di halaman Settings.</div>`;
+    : `<div class="notification-center-empty">Belum ada pengingat aktif. Aktifkan di halaman Pengaturan.</div>`;
 
   const historyHTML = history.length
     ? `<div class="notification-center-list">${history.map(item => createNotificationItem({
@@ -4176,7 +4242,7 @@ function renderNotificationCenter() {
       ${alertsHTML}
     </section>
     <section class="notification-center-section">
-      <h3 class="notification-center-section-title"><svg width="13" height="13"><use href="#icon-clock"/></svg>Reminder Aktif</h3>
+      <h3 class="notification-center-section-title"><svg width="13" height="13"><use href="#icon-clock"/></svg>Pengingat Aktif</h3>
       ${scheduledHTML}
     </section>
     <section class="notification-center-section">
@@ -4184,7 +4250,7 @@ function renderNotificationCenter() {
       ${historyHTML}
     </section>
     <div class="notification-center-footer">
-      <button class="btn btn-sm" data-action="showPage('settings',this)"><svg width="12" height="12"><use href="#icon-settings"/></svg>Settings</button>
+      <button class="btn btn-sm" data-action="showPage('settings',this)"><svg width="12" height="12"><use href="#icon-settings"/></svg>Pengaturan</button>
       <button class="btn btn-sm" data-action="clearNotificationCenterAll()"><svg width="12" height="12"><use href="#icon-trash"/></svg>Hapus Semua</button>
     </div>
   `;
@@ -4284,6 +4350,7 @@ Object.assign(window, {
   moveDashboardHeatmap, resetDashboardHeatmap, moveDashboardMiniCalendar,
   toggleNotificationCenter, closeNotificationCenter, clearNotificationCenterAll,
   showOnboarding, onboardSelect, onboardStart, onboardNext, onboardSkip, onboardDone,
+  onboardToggleMenstruasi, setDashboardMenstruasi,
 
   // Target
   addTarget, delTarget, toggleTargetStatus,
