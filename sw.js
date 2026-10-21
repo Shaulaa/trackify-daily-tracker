@@ -3,15 +3,15 @@
  * Caching strategy untuk performa & offline support
  */
 
-const CACHE_NAME = 'trackify-v2.6.0-dashboard-20261020';
+const CACHE_NAME = 'trackify-v2.6.0-dashboard-20261021-security';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './css/style.css',
+  './css/style.css?v=20261021-dashboard',
   './css/animations.css',
-  './js/script.js',
+  './js/script.js?v=20261021-security',
   './js/firebase.js',
-  './js/notifications.js',
+  './js/notifications.js?v=20261021-security',
   './js/pwa.js',
   './js/fcm.js',
   './img/favicon.png',

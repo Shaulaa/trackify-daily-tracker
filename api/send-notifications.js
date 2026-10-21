@@ -64,8 +64,12 @@ export default async function handler(req, res) {
   }
 
   // Verifikasi secret agar tidak bisa dipanggil sembarangan
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
-  if (secret !== process.env.CRON_SECRET) {
+  const expectedSecret = process.env.CRON_SECRET;
+  if (typeof expectedSecret !== 'string' || !expectedSecret.trim()) {
+    return res.status(503).json({ error: 'Notification service unavailable' });
+  }
+  const secret = req.headers?.['x-cron-secret'] || req.query?.secret;
+  if (typeof secret !== 'string' || secret !== expectedSecret) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -185,6 +189,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('[Cron] Fatal error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Unable to process notifications' });
   }
 }

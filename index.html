@@ -52,7 +52,7 @@
   <link rel="icon" type="image/png" href="./img/favicon.png">
   <link rel="shortcut icon" href="./img/favicon.png">
   <link rel="apple-touch-icon" href="./img/logo-pwa-light-192.png">
-  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/style.css?v=20261021-dashboard">
   <link rel="stylesheet" href="./css/animations.css">
   
   <!-- Chart.js akan di-lazy load on-demand via script.js -->
@@ -907,6 +907,79 @@
       </div>
     </section>
 
+    <div class="dashboard-shell">
+      <section class="card dashboard-tasks-card" aria-label="Tugas hari ini">
+        <div class="dashboard-card-header">
+          <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-todo"/></svg>Tugas Hari Ini</div>
+          <button class="dashboard-text-link" data-action="showPage('todo',navBtn(3))">Lihat semua</button>
+        </div>
+        <div id="d-todo-preview" class="dashboard-task-list" aria-live="polite"></div>
+      </section>
+
+      <section class="card dashboard-list-card dashboard-habits-card" aria-label="Kebiasaan hari ini">
+        <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-habit"/></svg>Kebiasaan Hari Ini</div>
+        <div id="d-habit-progress" class="dashboard-habit-list" aria-live="polite"></div>
+      </section>
+
+      <section aria-label="Ringkasan metrik" class="dashboard-metric-row">
+        <button type="button" class="dashboard-summary-item" data-action="showPage('habit',navBtn(2))"
+             aria-label="Habit selesai - klik untuk lihat detail">
+          <span class="metric-lbl">Habit selesai</span>
+          <span class="metric-val" id="d-habit" aria-live="polite">0/0</span>
+          <span class="dashboard-metric-note" id="dash-habit-note">Hari ini</span>
+        </button>
+        <button type="button" class="dashboard-summary-item" data-action="showPage('target',navBtn(1))"
+             aria-label="Target progress - klik untuk lihat detail">
+          <span class="metric-lbl">Progres target</span>
+          <span class="metric-val" id="dash-target-progress" aria-live="polite">0%</span>
+          <span class="dashboard-metric-note" id="d-target">0/0 selesai</span>
+        </button>
+        <button type="button" class="dashboard-summary-item" data-action="showPage('learning',this)"
+             aria-label="Focus time hari ini - klik untuk lihat detail">
+          <span class="metric-lbl">Waktu fokus</span>
+          <span class="metric-val" id="dash-focus-time-card" aria-live="polite">0m</span>
+          <span class="dashboard-metric-note">Waktu fokus hari ini</span>
+        </button>
+        <button type="button" class="dashboard-summary-item" data-action="showPage('todo',navBtn(3))"
+             aria-label="Task selesai - klik untuk lihat detail">
+          <span class="metric-lbl">Tugas selesai</span>
+          <span class="metric-val" id="d-todo" aria-live="polite">0/0</span>
+          <span class="dashboard-metric-note" id="dash-todo-note">Semua tugas selesai?</span>
+        </button>
+        <button type="button" class="dashboard-summary-item" data-action="showPage('emosi',this)"
+             aria-label="Mood hari ini - klik untuk lihat detail">
+          <span class="metric-lbl">Mood hari ini</span>
+          <span class="metric-val metric-val--text" id="dash-mood-card" aria-live="polite">Belum</span>
+          <span class="dashboard-metric-note">Catatan hari ini</span>
+        </button>
+      </section>
+
+      <section class="card dashboard-focus-card" aria-label="Focus time hari ini">
+        <div class="dashboard-card-header">
+          <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-clock"/></svg>Focus Time Hari Ini</div>
+          <strong id="dash-focus-time-total">0m total</strong>
+        </div>
+        <div id="dash-focus-bars" class="dashboard-focus-bars" aria-live="polite"></div>
+      </section>
+
+      <div class="dashboard-side-metrics">
+        <section class="card dashboard-streak-card" aria-label="Streak hari ini">
+          <div class="card-title dashboard-card-title">Streak Hari Ini</div>
+          <div class="dashboard-side-number"><span id="dash-streak-side">0</span><svg width="30" height="30" aria-hidden="true"><use href="#icon-fire"/></svg></div>
+          <p>hari berturut-turut</p>
+          <small id="qa-streak-sub">0 hari streak</small>
+        </section>
+        <section class="card dashboard-progress-card" aria-label="Progress hari ini">
+          <div class="card-title dashboard-card-title">Progress Hari Ini</div>
+          <div class="dashboard-progress-ring" id="dash-progress-ring" style="--value:0">
+            <strong id="dash-progress-percent">0%</strong>
+          </div>
+          <p id="dash-progress-copy">0/0 kebiasaan</p>
+          <button class="dashboard-text-link" data-action="showPage('habit',navBtn(2))">Lihat detail <svg width="13" height="13"><use href="#icon-chevron-down"/></svg></button>
+        </section>
+      </div>
+    </div>
+
     <div class="dashboard-top-grid">
         <section class="card dashboard-menstruasi-card" aria-label="Tracker menstruasi">
           <div class="card-title dashboard-card-title dashboard-menstruasi-title"><svg width="14" height="14"><use href="#icon-siklus"/></svg>Tracker Menstruasi</div>
@@ -996,85 +1069,6 @@
             <span><i class="legend-dot legend-dot--event"></i>Event</span>
           </div>
         </section>
-    </div>
-
-    <div class="dashboard-shell">
-      <div class="dashboard-main-column">
-
-        <section aria-label="Ringkasan metrik" class="dashboard-metric-row">
-          <button type="button" class="dashboard-summary-item" data-action="showPage('habit',navBtn(2))"
-               aria-label="Habit selesai - klik untuk lihat detail">
-            <span class="metric-lbl">Habit selesai</span>
-            <span class="metric-val" id="d-habit" aria-live="polite">0/0</span>
-            <span class="dashboard-metric-note" id="dash-habit-note">Hari ini</span>
-          </button>
-          <button type="button" class="dashboard-summary-item" data-action="showPage('target',navBtn(1))"
-               aria-label="Target progress - klik untuk lihat detail">
-            <span class="metric-lbl">Progres target</span>
-            <span class="metric-val" id="dash-target-progress" aria-live="polite">0%</span>
-            <span class="dashboard-metric-note" id="d-target">0/0 selesai</span>
-          </button>
-          <button type="button" class="dashboard-summary-item" data-action="showPage('learning',this)"
-               aria-label="Focus time hari ini - klik untuk lihat detail">
-            <span class="metric-lbl">Waktu fokus</span>
-            <span class="metric-val" id="dash-focus-time-card" aria-live="polite">0m</span>
-            <span class="dashboard-metric-note">Waktu fokus hari ini</span>
-          </button>
-          <button type="button" class="dashboard-summary-item" data-action="showPage('todo',navBtn(3))"
-               aria-label="Task selesai - klik untuk lihat detail">
-            <span class="metric-lbl">Tugas selesai</span>
-            <span class="metric-val" id="d-todo" aria-live="polite">0/0</span>
-            <span class="dashboard-metric-note" id="dash-todo-note">Semua tugas selesai?</span>
-          </button>
-          <button type="button" class="dashboard-summary-item" data-action="showPage('emosi',this)"
-               aria-label="Mood hari ini - klik untuk lihat detail">
-            <span class="metric-lbl">Mood hari ini</span>
-            <span class="metric-val metric-val--text" id="dash-mood-card" aria-live="polite">Belum</span>
-            <span class="dashboard-metric-note">Catatan hari ini</span>
-          </button>
-        </section>
-
-        <div class="dashboard-lower-grid">
-          <section class="card dashboard-list-card" aria-label="Kebiasaan hari ini">
-            <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-habit"/></svg>Kebiasaan Hari Ini</div>
-            <div id="d-habit-progress" class="dashboard-habit-list" aria-live="polite"></div>
-          </section>
-          <section class="card dashboard-focus-card" aria-label="Focus time hari ini">
-            <div class="dashboard-card-header">
-              <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-clock"/></svg>Focus Time Hari Ini</div>
-              <strong id="dash-focus-time-total">0m total</strong>
-            </div>
-            <div id="dash-focus-bars" class="dashboard-focus-bars" aria-live="polite"></div>
-          </section>
-        </div>
-      </div>
-
-      <aside class="dashboard-side-column" aria-label="Ringkasan tambahan">
-        <section class="card dashboard-tasks-card" aria-label="Tugas hari ini">
-          <div class="dashboard-card-header">
-            <div class="card-title dashboard-card-title"><svg width="14" height="14"><use href="#icon-todo"/></svg>Tugas Hari Ini</div>
-            <button class="dashboard-text-link" data-action="showPage('todo',navBtn(3))">Lihat semua</button>
-          </div>
-          <div id="d-todo-preview" class="dashboard-task-list" aria-live="polite"></div>
-        </section>
-
-        <div class="dashboard-side-metrics">
-          <section class="card dashboard-streak-card" aria-label="Streak hari ini">
-            <div class="card-title dashboard-card-title">Streak Hari Ini</div>
-            <div class="dashboard-side-number"><span id="dash-streak-side">0</span><svg width="30" height="30" aria-hidden="true"><use href="#icon-fire"/></svg></div>
-            <p>hari berturut-turut</p>
-            <small id="qa-streak-sub">0 hari streak</small>
-          </section>
-          <section class="card dashboard-progress-card" aria-label="Progress hari ini">
-            <div class="card-title dashboard-card-title">Progress Hari Ini</div>
-            <div class="dashboard-progress-ring" id="dash-progress-ring" style="--value:0">
-              <strong id="dash-progress-percent">0%</strong>
-            </div>
-            <p id="dash-progress-copy">0/0 kebiasaan</p>
-            <button class="dashboard-text-link" data-action="showPage('habit',navBtn(2))">Lihat detail <svg width="13" height="13"><use href="#icon-chevron-down"/></svg></button>
-          </section>
-        </div>
-      </aside>
     </div>
   </div>
 
@@ -2295,8 +2289,8 @@
 </div>
 
 <script type="module" src="./js/firebase.js"></script>
-<script type="module" src="./js/notifications.js"></script>
-<script type="module" src="./js/script.js"></script>
+<script type="module" src="./js/notifications.js?v=20261021-security"></script>
+<script type="module" src="./js/script.js?v=20261021-security"></script>
 <script>
   window.setTimeout(function () {
     if (document.body && document.body.classList.contains('app-booting')) {

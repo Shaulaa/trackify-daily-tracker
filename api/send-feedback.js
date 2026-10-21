@@ -11,8 +11,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const { type, name, email, message, timestamp } = req.body || {};
-
+  if (!/^application\/json(?:\s*;|$)/i.test(req.headers?.['content-type'] || '')) {
+    return res.status(415).json({ ok: false, error: 'JSON body required' });
+  }
+  const body = req.body;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return res.status(400).json({ ok: false, error: 'Invalid feedback' });
+  }
+  const limits = { type: 80, name: 120, email: 254, message: 2000, timestamp: 80 };
+  for (const [field, max] of Object.entries(limits)) {
+    if (body[field] !== undefined && (typeof body[field] !== 'string' || body[field].length > max)) {
+      return res.status(400).json({ ok: false, error: 'Invalid feedback' });
+    }
+  }
+  const { type, name, email, timestamp } = body;
+  const message = body.message?.trim();
   if (!message) {
     return res.status(400).json({ ok: false, error: 'Message is required' });
   }
@@ -38,11 +51,16 @@ export default async function handler(req, res) {
     `${escapeMarkdown(message)}`,
   ].join('\n');
 
+  if (text.length > 4096) {
+    return res.status(400).json({ ok: false, error: 'Feedback is too long' });
+  }
+
   try {
     const response = await fetch(
       `https://api.telegram.org/bot${token}/sendMessage`,
       {
         method: 'POST',
+        signal: AbortSignal.timeout(5000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id:    chatId,
@@ -55,15 +73,16 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!data.ok) {
-      console.error('[Feedback] Telegram error:', data);
-      return res.status(500).json({ ok: false, error: data.description });
+      console.error('[Feedback] Telegram rejected feedback');
+      return res.status(502).json({ ok: false, error: 'Unable to send feedback' });
     }
 
     return res.status(200).json({ ok: true });
 
   } catch (err) {
-    console.error('[Feedback] Fetch error:', err);
-    return res.status(500).json({ ok: false, error: err.message });
+    // Fetch errors can contain the request URL, including the bot token.
+    console.error('[Feedback] Upstream request failed');
+    return res.status(502).json({ ok: false, error: 'Unable to send feedback' });
   }
 }
 

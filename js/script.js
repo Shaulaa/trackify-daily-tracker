@@ -19,7 +19,7 @@ import {
   enableNotifications, disableNotifications,
   updateTypePrefs, updateDeadlinePrefs, testNotification,
   renderNotifSettings, clearNotifHistoryUI, getPrefs, getNotificationHistorySync
-} from './notifications.js';
+} from './notifications.js?v=20261021-security';
 
 // ============================================================
 // PERFORMANCE OPTIMIZATION — Lazy Loading
@@ -134,7 +134,7 @@ onAuthChange((user) => {
     const triggerIcon = document.getElementById("auth-trigger-icon");
     if (triggerIcon) {
       if (avatarSrc) {
-        triggerIcon.innerHTML = `<img src="${avatarSrc}" width="28" height="28" style="border-radius:50%;display:block">`;
+        triggerIcon.innerHTML = `<img src="${escapeHTML(avatarSrc)}" width="28" height="28" style="border-radius:50%;display:block">`;
         triggerIcon.style.background = 'transparent';
         triggerIcon.style.border = '1.5px solid var(--accent)';
       } else {
@@ -1186,6 +1186,12 @@ function closeSidebar() {
 // Loading overlay — ditampilkan saat fetch Firebase berlangsung
 function setLoadingOverlay(visible) {
   let el = document.getElementById('trackify-loading-overlay');
+  // A transparent full-screen element can still intercept every click.
+  // Remove it completely when loading finishes, including error cleanup.
+  if (!visible) {
+    el?.remove();
+    return;
+  }
   if (!el) {
     el = document.createElement('div');
     el.id = 'trackify-loading-overlay';
@@ -1198,13 +1204,8 @@ function setLoadingOverlay(visible) {
       `;
     document.body.appendChild(el);
   }
-  if (visible) {
-    el.style.opacity = '1';
-    el.style.pointerEvents = 'all';
-  } else {
-    el.style.opacity = '0';
-    el.style.pointerEvents = 'none';
-  }
+  el.style.opacity = '1';
+  el.style.pointerEvents = 'all';
 }
 
 // Toast
@@ -1300,12 +1301,12 @@ function emptyHTML(iconKey, msg) {
   const eyebrow = isSearchEmpty ? 'Belum ketemu' : 'Siap diisi';
   const detail = EMPTY_DETAILS[iconKey] || 'Tambahkan entri pertamamu agar bagian ini mulai terasa lebih hidup.';
   const iconSvg = EMPTY_ICONS[iconKey] || `<svg width="28" height="28"><use href="#icon-info"/></svg>`;
-  return `<div class="empty" role="status" aria-label="${label}">
+  return `<div class="empty" role="status" aria-label="${escapeHTML(label)}">
     <div class="empty-icon-wrap" aria-hidden="true">
       <div class="empty-icon">${iconSvg}</div>
     </div>
     <div class="empty-eyebrow">${eyebrow}</div>
-    <div class="empty-title">${msg}</div>
+    <div class="empty-title">${escapeHTML(msg)}</div>
     <div class="empty-body">${detail}</div>
   </div>`;
 }
@@ -1510,7 +1511,7 @@ function escapeHTML(str) {
 function actionArg(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return String(parseInt(value, 10));
-  return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}'`;
+  return escapeHTML(`'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}'`);
 }
 
 /* ============================================================
@@ -2310,7 +2311,7 @@ function renderTargets() {
     return `<tr>
       <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
       <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
-      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
+      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${escapeHTML(t.deadline||'')}">${escapeHTML(t.deadline||'—')}</time></td>
       <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
                 data-action="toggleTargetStatus(${i})"
@@ -2421,8 +2422,8 @@ function renderHabit(options = {}) {
       const label = val==='done' ? 'Sukses' : val==='skip' ? 'Gagal' : 'Belum';
       return `<td class="check-cell habit-value-col">
         <button class="habit-check ${val==='done'?'done':val==='skip'?'skip':''}"
-                data-action="toggleHabit('${row}',${hi})"
-                aria-label="${escapeHTML(h)} pada ${row}: ${label}"
+                data-action="toggleHabit(${actionArg(row)},${hi})"
+                aria-label="${escapeHTML(h)} pada ${escapeHTML(row)}: ${label}"
                 aria-pressed="${val==='done'}">
           ${val==='done'?'✓':val==='skip'?'×':''}
         </button>
@@ -2430,9 +2431,9 @@ function renderHabit(options = {}) {
     }).join('');
     return `<tr>
       <td class="habit-date-col" style="white-space:nowrap;color:var(--text3);font-size:12px;font-weight:600">
-        <time datetime="${row}">${row}</time>
+        <time datetime="${escapeHTML(row)}">${escapeHTML(row)}</time>
       </td>${cells}
-      <td class="habit-action-col"><button class="del-btn" data-action="delHabitRow(${ri})" aria-label="Hapus baris ${row}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
+      <td class="habit-action-col"><button class="del-btn" data-action="delHabitRow(${ri})" aria-label="Hapus baris ${escapeHTML(row)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
     </tr>`;
   }).join('');
   if (habitWrap) {
@@ -2512,7 +2513,7 @@ function renderTodo() {
     if (t.dueDate || t.dueTime) {
       const isOverdue = t.dueDate && !t.done && t.dueDate < today();
       dueMeta = `<span class="todo-due ${isOverdue ? 'overdue' : ''}" aria-label="Jatuh tempo">
-        ${t.dueDate ? t.dueDate : ''}${t.dueDate && t.dueTime ? ' · ' : ''}${t.dueTime ? t.dueTime : ''}
+        ${escapeHTML(t.dueDate ? t.dueDate : '')}${t.dueDate && t.dueTime ? ' · ' : ''}${escapeHTML(t.dueTime ? t.dueTime : '')}
       </span>`;
     }
     return `<div class="todo-item todo-status-${t.done ? 'done' : 'pending'}" role="listitem">
@@ -2611,11 +2612,11 @@ function renderJournals() {
   el.innerHTML = state.journals.map((j, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${j.date}">${j.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${escapeHTML(j.date)}">${escapeHTML(j.date)}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${j.mood ? `<span class="badge badge-purple">${escapeHTML(j.mood)}</span>` : ''}
-          <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="del-btn" data-action="delJournal(${i})" aria-label="Hapus jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${escapeHTML(j.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delJournal(${i})" aria-label="Hapus jurnal ${escapeHTML(j.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6">
@@ -2653,10 +2654,10 @@ function renderReflections() {
   el.innerHTML = state.reflections.map((r, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${r.date}">${r.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${escapeHTML(r.date)}">${escapeHTML(r.date)}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
-          <button class="edit-btn" data-action="editReflection(${i})" aria-label="Edit refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="del-btn" data-action="delReflection(${i})" aria-label="Hapus refleksi ${r.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editReflection(${i})" aria-label="Edit refleksi ${escapeHTML(r.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delReflection(${i})" aria-label="Hapus refleksi ${escapeHTML(r.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div style="font-size:13px;line-height:1.7">
@@ -2697,11 +2698,11 @@ function renderSosials() {
   el.innerHTML = state.sosials.map((s, i) => `
     <article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${s.date}">${s.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${escapeHTML(s.date)}">${escapeHTML(s.date)}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge badge-blue">${escapeHTML(s.who)}</span>
-          <button class="edit-btn" data-action="editSosial(${i})" aria-label="Edit catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="del-btn" data-action="delSosial(${i})" aria-label="Hapus catatan sosial ${s.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editSosial(${i})" aria-label="Edit catatan sosial ${escapeHTML(s.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delSosial(${i})" aria-label="Hapus catatan sosial ${escapeHTML(s.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       ${s.topic   ? `<div style="font-size:13px;color:var(--text2);margin-top:4px">${escapeHTML(s.topic)}</div>` : ''}
@@ -2743,13 +2744,13 @@ function renderEmosi() {
   if (!state.emosis.length) { tb.innerHTML = `<tr><td colspan="5">${emptyHTML('🌊','Belum ada data emosi.')}</td></tr>`; return; }
   tb.innerHTML = state.emosis.map((e, i) => `
     <tr class="emosi-row">
-      <td data-label="Tanggal" style="white-space:nowrap;font-size:12px;color:var(--text3)"><time datetime="${e.date}">${e.date}</time></td>
+      <td data-label="Tanggal" style="white-space:nowrap;font-size:12px;color:var(--text3)"><time datetime="${escapeHTML(e.date)}">${escapeHTML(e.date)}</time></td>
       <td data-label="Mood"><span class="badge ${MOOD_COLOR[e.mood]||'badge-purple'}">${escapeHTML(e.mood)}</span></td>
       <td data-label="Penyebab" style="font-size:12px;color:var(--text2)">${escapeHTML(e.cause)||'—'}</td>
       <td data-label="Solusi" style="font-size:12px;color:var(--text2)">${escapeHTML(e.solution)||'—'}</td>
       <td data-label=""><div style="display:flex;gap:6px;">
-        <button class="edit-btn" data-action="editEmosi(${i})" aria-label="Edit catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        <button class="del-btn" data-action="delEmosi(${i})" aria-label="Hapus catatan emosi ${e.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        <button class="edit-btn" data-action="editEmosi(${i})" aria-label="Edit catatan emosi ${escapeHTML(e.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="del-btn" data-action="delEmosi(${i})" aria-label="Hapus catatan emosi ${escapeHTML(e.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       </div></td>
     </tr>`).join('');
   setTimeout(registerAllLongPress, 60);
@@ -2837,8 +2838,8 @@ function updateRewardPage() {
       : state.checkins.slice(0, 10).map(c => `
           <div class="quick-stat">
             <svg width="18" height="18" style="color:#f97316;vertical-align:-3px"><use href="#icon-fire"/></svg>
-            <span style="flex:1;font-size:13px"><time datetime="${c.date}">${c.date}</time></span>
-            <span class="badge badge-amber">Streak: ${c.streak} hari</span>
+            <span style="flex:1;font-size:13px"><time datetime="${escapeHTML(c.date)}">${escapeHTML(c.date)}</time></span>
+            <span class="badge badge-amber">Streak: ${escapeHTML(c.streak)} hari</span>
           </div>`).join('');
   }
 
@@ -2886,7 +2887,7 @@ function renderLearnings() {
   el.innerHTML = state.learnings.map((l, i) => `
     <article class="learning-entry">
       <div class="learning-entry-header">
-        <span class="learning-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${l.date}">${l.date}</time></span>
+        <span class="learning-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${escapeHTML(l.date)}">${escapeHTML(l.date)}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${l.cat      ? `<span class="learning-tag">${escapeHTML(l.cat)}</span>` : ''}
           ${l.duration ? `<span class="badge badge-blue"><svg width="11" height="11" style="vertical-align:-1px;margin-right:3px"><use href="#icon-calendar"/></svg>${escapeHTML(l.duration)} mnt</span>` : ''}
@@ -2931,7 +2932,7 @@ function addDays(dateStr, n) {
   return d.toISOString().slice(0, 10);
 }
 function fmtDateID(dateStr) {
-  if (!dateStr) return '—';
+  if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '—';
   const [y, m, d] = dateStr.split('-');
   const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return `${+d} ${bulan[+m - 1]} ${y}`;
@@ -3066,9 +3067,9 @@ function renderMenstruasi() {
           <td data-label="Selesai">${d.end ? fmtDateID(d.end) : '—'}</td>
           <td data-label="Durasi">${dur}</td>
           <td data-label="Siklus">${cycleLen}</td>
-          <td data-label="Aliran">${FLOW_LABEL[d.flow] || d.flow}</td>
+          <td data-label="Aliran">${escapeHTML(FLOW_LABEL[d.flow] || d.flow)}</td>
           <td data-label="Gejala" style="font-size:11px;max-width:180px">${escapeHTML(syms)}</td>
-          <td data-label="Mood">${d.mood ? MOOD_LABEL[d.mood] || d.mood : '—'}</td>
+          <td data-label="Mood">${escapeHTML(d.mood ? MOOD_LABEL[d.mood] || d.mood : '—')}</td>
           <td data-label=""><button class="del-btn btn-danger" data-action="delMenstruasi(${i})" aria-label="Hapus siklus ini"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
         </tr>`;
       }).join('');
@@ -3088,7 +3089,7 @@ function renderMenstruasi() {
     } else {
       symEl.innerHTML = Object.entries(symsCount)
         .sort((a,b)=>b[1]-a[1])
-        .map(([s,c]) => `<div class="symptom-badge">${SYMPTOM_LABEL[s]||s} <span class="sym-count">${c}×</span></div>`)
+        .map(([s,c]) => `<div class="symptom-badge">${escapeHTML(SYMPTOM_LABEL[s]||s)} <span class="sym-count">${c}×</span></div>`)
         .join('');
     }
   }
@@ -3267,8 +3268,8 @@ function showContextMenu(x, y, items) {
     const btn = document.createElement('button');
     btn.className = 'ctx-menu-item' + (danger ? ' danger' : '');
     btn.setAttribute('role', 'menuitem');
-    const iconHtml = CTX_ICON_MAP[icon] || (icon ? `<span aria-hidden="true">${icon}</span>` : '');
-    btn.innerHTML = `<span aria-hidden="true" style="display:inline-flex;align-items:center">${iconHtml}</span>${label}`;
+    const iconHtml = CTX_ICON_MAP[icon] || (icon ? `<span aria-hidden="true">${escapeHTML(icon)}</span>` : '');
+    btn.innerHTML = `<span aria-hidden="true" style="display:inline-flex;align-items:center">${iconHtml}</span>${escapeHTML(label)}`;
     btn.addEventListener('click', () => { closeContextMenu(); action(); });
     _ctxMenu.appendChild(btn);
   });
@@ -3368,16 +3369,16 @@ function getSearchSources() {
     {
       page: 'journal', icon: 'journal', badge: 'Jurnal',
       getItems: () => state.journals.map((j) => ({
-        title: j.did ? j.did.slice(0, 80) : `Jurnal ${j.date}`,
-        meta: `${j.date} · ${j.mood || 'Tanpa mood'}`,
+        title: j.did ? j.did.slice(0, 80) : `Jurnal ${escapeHTML(j.date)}`,
+        meta: `${escapeHTML(j.date)} · ${j.mood || 'Tanpa mood'}`,
         action: () => showPage('journal', navBtn(6))
       }))
     },
     {
       page: 'reflection', icon: 'refleksi', badge: 'Refleksi',
       getItems: () => state.reflections.map((r) => ({
-        title: r.grow ? r.grow.slice(0, 80) : `Refleksi ${r.date}`,
-        meta: `${r.date} · ${r.lack ? r.lack.slice(0, 40) : ''}`,
+        title: r.grow ? r.grow.slice(0, 80) : `Refleksi ${escapeHTML(r.date)}`,
+        meta: `${escapeHTML(r.date)} · ${r.lack ? r.lack.slice(0, 40) : ''}`,
         action: () => showPage('reflection', navBtn(7))
       }))
     },
@@ -3385,7 +3386,7 @@ function getSearchSources() {
       page: 'sosial', icon: 'komunikasi', badge: 'Komunikasi',
       getItems: () => state.sosials.map((s) => ({
         title: s.topic || `Dengan ${s.who}`,
-        meta: `${s.date} · ${s.who || ''}`,
+        meta: `${escapeHTML(s.date)} · ${s.who || ''}`,
         action: () => showPage('sosial', navBtn(9))
       }))
     },
@@ -3393,7 +3394,7 @@ function getSearchSources() {
       page: 'emosi', icon: 'emosi', badge: 'Emosi',
       getItems: () => state.emosis.map((e) => ({
         title: `${e.mood} — ${e.cause ? e.cause.slice(0, 60) : 'Tanpa keterangan'}`,
-        meta: `${e.date} · ${e.solution ? e.solution.slice(0, 40) : ''}`,
+        meta: `${escapeHTML(e.date)} · ${e.solution ? e.solution.slice(0, 40) : ''}`,
         action: () => showPage('emosi', navBtn(10))
       }))
     },
@@ -3401,7 +3402,7 @@ function getSearchSources() {
       page: 'learning', icon: 'learning', badge: 'Learning',
       getItems: () => state.learnings.map((l) => ({
         title: l.subject || 'Sesi belajar',
-        meta: `${l.date} · ${l.what ? l.what.slice(0, 50) : ''} · ${l.duration ? l.duration + ' menit' : ''}`,
+        meta: `${escapeHTML(l.date)} · ${l.what ? l.what.slice(0, 50) : ''} · ${l.duration ? l.duration + ' menit' : ''}`,
         action: () => showPage('learning', navBtn(5))
       }))
     }
@@ -3563,7 +3564,7 @@ function editTarget(i) {
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Nama Target</label>
     <input id="em-t-name" type="text" value="${escapeHTML(t.name)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Deadline</label>
-    <input id="em-t-deadline" type="date" value="${t.deadline||''}" style="width:100%;margin-bottom:12px">
+    <input id="em-t-deadline" type="date" value="${escapeHTML(t.deadline||'')}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Status</label>
     <select id="em-t-status" style="width:100%;margin-bottom:12px">
       <option value="on_progress" ${t.status==='on_progress'?'selected':''}>Berjalan</option>
@@ -3599,9 +3600,9 @@ function editTodo(id) {
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Teks Tugas</label>
     <input id="em-td-text" type="text" value="${escapeHTML(t.text)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
-    <input id="em-td-date" type="date" value="${t.dueDate||''}" style="width:100%;margin-bottom:12px">
+    <input id="em-td-date" type="date" value="${escapeHTML(t.dueDate||'')}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Jam</label>
-    <input id="em-td-time" type="time" value="${t.dueTime||''}" style="width:100%;margin-bottom:12px">
+    <input id="em-td-time" type="time" value="${escapeHTML(t.dueTime||'')}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Prioritas</label>
     <select id="em-td-priority" style="width:100%;margin-bottom:12px">${priOpts}</select>
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Kategori</label>
@@ -3630,7 +3631,7 @@ function editJournal(i) {
     .map(m => `<option value="${m}" ${j.mood===m?'selected':''}>${m||'— Pilih mood —'}</option>`).join('');
   openEditModal('Edit Jurnal', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
-    <input id="em-j-date" type="date" value="${j.date}" style="width:100%;margin-bottom:12px">
+    <input id="em-j-date" type="date" value="${escapeHTML(j.date)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Aktivitas</label>
     <textarea id="em-j-did" style="width:100%;margin-bottom:12px;min-height:80px">${escapeHTML(j.did)}</textarea>
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Hal Positif</label>
@@ -3658,7 +3659,7 @@ function editReflection(i) {
   if (!r) return;
   openEditModal('Edit Refleksi', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
-    <input id="em-r-date" type="date" value="${r.date}" style="width:100%;margin-bottom:12px">
+    <input id="em-r-date" type="date" value="${escapeHTML(r.date)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Yang Sudah Berkembang</label>
     <textarea id="em-r-grow" style="width:100%;margin-bottom:12px;min-height:70px">${escapeHTML(r.grow)}</textarea>
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Yang Masih Kurang</label>
@@ -3683,7 +3684,7 @@ function editSosial(i) {
   if (!s) return;
   openEditModal('Edit Catatan Sosial', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
-    <input id="em-s-date" type="date" value="${s.date}" style="width:100%;margin-bottom:12px">
+    <input id="em-s-date" type="date" value="${escapeHTML(s.date)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Ngobrol dengan Siapa</label>
     <input id="em-s-who" type="text" value="${escapeHTML(s.who)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Topik</label>
@@ -3713,7 +3714,7 @@ function editEmosi(i) {
     .map(m => `<option value="${m}" ${e.mood===m?'selected':''}>${m}</option>`).join('');
   openEditModal('Edit Catatan Emosi', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
-    <input id="em-e-date" type="date" value="${e.date}" style="width:100%;margin-bottom:12px">
+    <input id="em-e-date" type="date" value="${escapeHTML(e.date)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Mood</label>
     <select id="em-e-mood" style="width:100%;margin-bottom:12px">${moods}</select>
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Penyebab</label>
@@ -3740,7 +3741,7 @@ function editLearning(i) {
     .map(c => `<option value="${c}" ${l.cat===c?'selected':''}>${c||'— Pilih kategori —'}</option>`).join('');
   openEditModal('Edit Sesi Belajar', `
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Tanggal</label>
-    <input id="em-l-date" type="date" value="${l.date}" style="width:100%;margin-bottom:12px">
+    <input id="em-l-date" type="date" value="${escapeHTML(l.date)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Topik</label>
     <input id="em-l-subject" type="text" value="${escapeHTML(l.subject)}" style="width:100%;margin-bottom:12px">
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Kategori</label>
@@ -3750,7 +3751,7 @@ function editLearning(i) {
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Insight</label>
     <textarea id="em-l-insight" style="width:100%;margin-bottom:12px;min-height:60px">${escapeHTML(l.insight||'')}</textarea>
     <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Durasi (menit)</label>
-    <input id="em-l-duration" type="number" min="1" value="${l.duration||''}" style="width:100%">`, { type: 'learning', index: i });
+    <input id="em-l-duration" type="number" min="1" value="${escapeHTML(l.duration||'')}" style="width:100%">`, { type: 'learning', index: i });
 }
 function _saveEditLearning(i) {
   const subject = document.getElementById('em-l-subject')?.value.trim();
@@ -4687,7 +4688,7 @@ function renderTargetsFiltered() {
     return `<tr class="target-row">
       <td data-label="Target" style="font-weight:600">${escapeHTML(t.name)}</td>
       <td data-label="Catatan" style="font-size:12px;color:var(--text2);max-width:160px">${noteSnip}</td>
-      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${t.deadline||''}">${t.deadline||'—'}</time></td>
+      <td data-label="Deadline" style="color:var(--text3);font-size:12px"><time datetime="${escapeHTML(t.deadline||'')}">${escapeHTML(t.deadline||'—')}</time></td>
       <td data-label="Status">
         <button class="status-toggle-btn ${isDone ? 'status-done' : 'status-progress'}"
                 data-action="toggleTargetStatus(${i})"
@@ -4789,7 +4790,7 @@ function renderTodosFiltered() {
   el.setAttribute('role', 'list');
   el.innerHTML = list.map(t => {
     const todoIdArg = actionArg(t.id);
-    const p = t.priority || 'medium';
+    const p = ['high', 'medium', 'low'].includes(t.priority) ? t.priority : 'medium';
     const priColor = p === 'high' ? 'var(--red)' : p === 'low' ? 'var(--green)' : 'var(--amber)';
     const priIcon  = p === 'high'
       ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>`
@@ -4801,7 +4802,7 @@ function renderTodosFiltered() {
     if (t.dueDate || t.dueTime) {
       const isOverdue = t.dueDate && !t.done && t.dueDate < today();
       dueMeta = `<span class="todo-due ${isOverdue ? 'overdue' : ''}" aria-label="Jatuh tempo">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${t.dueDate||''}${t.dueDate && t.dueTime ? ' · ' : ''}${t.dueTime||''}
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${escapeHTML(t.dueDate||'')}${t.dueDate && t.dueTime ? ' · ' : ''}${escapeHTML(t.dueTime||'')}
       </span>`;
     }
 
@@ -4869,11 +4870,11 @@ function renderJournalsFiltered() {
     const i = j._origIdx;
     return `<article class="journal-entry">
       <div class="journal-meta">
-        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${j.date}">${j.date}</time></span>
+        <span class="journal-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${escapeHTML(j.date)}">${escapeHTML(j.date)}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${j.mood ? `<span class="badge badge-purple">${escapeHTML(j.mood)}</span>` : ''}
-          <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="del-btn" data-action="delJournal(${i})" aria-label="Hapus jurnal ${j.date}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="edit-btn" data-action="editJournal(${i})" aria-label="Edit jurnal ${escapeHTML(j.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="del-btn" data-action="delJournal(${i})" aria-label="Hapus jurnal ${escapeHTML(j.date)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6">
@@ -4928,7 +4929,7 @@ function renderLearningsFiltered() {
     const i = l._origIdx;
     return `<article class="learning-entry">
       <div class="learning-entry-header">
-        <span class="learning-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${l.date}">${l.date}</time></span>
+        <span class="learning-date"><svg width="11" height="11" style="vertical-align:-1px;margin-right:4px;color:var(--text3)"><use href="#icon-calendar"/></svg><time datetime="${escapeHTML(l.date)}">${escapeHTML(l.date)}</time></span>
         <div style="display:flex;align-items:center;gap:8px">
           ${l.cat      ? `<span class="learning-tag">${escapeHTML(l.cat)}</span>` : ''}
           ${l.duration ? `<span class="badge badge-blue"><svg width="11" height="11" style="vertical-align:-1px;margin-right:3px"><use href="#icon-calendar"/></svg>${escapeHTML(l.duration)} mnt</span>` : ''}

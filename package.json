@@ -19,15 +19,14 @@
     "prod": "npm run build && echo Production build ready for deployment!"
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0"
+    "firebase-admin": "14.5.0"
   },
   "devDependencies": {
-    "terser": "^5.31.0",
     "csso": "^5.0.5",
-    "sharp": "^0.33.0"
+    "sharp": "0.35.5",
+    "terser": "^5.31.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }
-

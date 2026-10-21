@@ -1,9 +1,9 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Documentation and non-essential files
 *.md
+!SECURITY_REVIEW.md
 
 # Generated build artifacts
 css/*.min.css
@@ -21,6 +21,11 @@ img/*.optimized.png
 .env
 .env.local
 .env*.local
+.env.*
+!.env.example
+*.pem
+*.key
+*serviceAccount*.json
 
 # Vercel
 .vercel

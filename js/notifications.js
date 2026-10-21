@@ -574,7 +574,7 @@ export function renderNotifSettings() {
           <div class="notif-advance-wrap" style="${rowDisabled ? 'opacity:.4' : ''}">
             <span class="notif-advance-label">H&minus;</span>
             <input type="number" class="notif-advance-input" min="0" max="30"
-              value="${d.advanceDays}" ${dis}
+              value="${escapeHtml(d.advanceDays)}" ${dis}
               data-action="updateNotifAdvance(this,'${key}')"
               aria-label="Ingatkan berapa hari sebelum deadline">
             <span class="notif-advance-label">hari</span>
@@ -599,15 +599,15 @@ export function renderNotifSettings() {
         <div class="notif-row-left">
           <svg width="16" height="16" class="notif-row-icon"><use href="#${icon}"/></svg>
           <div>
-            <div class="notif-row-label">${t.label}</div>
-            <div class="notif-row-desc">${t.body}</div>
+            <div class="notif-row-label">${escapeHtml(t.label)}</div>
+            <div class="notif-row-desc">${escapeHtml(t.body)}</div>
           </div>
         </div>
         <div class="notif-row-right">
-          <input type="time" class="notif-time-input" value="${t.time}" ${dis}
+          <input type="time" class="notif-time-input" value="${escapeHtml(t.time)}" ${dis}
             data-action="updateNotifTime(this,'${key}')"
-            aria-label="Waktu pengingat ${t.label}">
-          <label class="notif-toggle-wrap" aria-label="Aktifkan ${t.label}">
+            aria-label="Waktu pengingat ${escapeHtml(t.label)}">
+          <label class="notif-toggle-wrap" aria-label="Aktifkan ${escapeHtml(t.label)}">
             <input type="checkbox" ${checked} ${dis}
               data-action="toggleNotifType(this,'${key}')">
             <span class="notif-toggle-slider"></span>
