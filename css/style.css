@@ -226,6 +226,7 @@ select,
     transform .42s cubic-bezier(.22,1,.36,1),
     opacity .32s ease,
     box-shadow .42s ease,
+    visibility 0s linear,
     background .3s,
     border-color .3s;
   will-change: transform;
@@ -455,6 +456,7 @@ img[alt="Trackify logo"] {
   padding: 30px 30px 60px;
   position: relative;
   z-index: 1;
+  transition: width .42s cubic-bezier(.22,1,.36,1), margin-left .42s cubic-bezier(.22,1,.36,1);
 }
 
 .desktop-toolbar {
@@ -496,6 +498,7 @@ img[alt="Trackify logo"] {
   .sidebar-collapsed .sidebar {
     transform: translateX(-100%);
     visibility: hidden;
+    transition-delay: 0s, 0s, 0s, .42s, 0s, 0s;
   }
   .sidebar-collapsed .main {
     width: 100%;
@@ -1904,6 +1907,8 @@ body.reward-modal-open { overflow: hidden; }
     opacity: .96;
     transform: translate3d(-104%, 0, 0);
     touch-action: pan-y;
+    transition: transform .42s cubic-bezier(.22,1,.36,1), opacity .32s ease, box-shadow .42s ease;
+    will-change: transform;
   }
   .sidebar.open {
     opacity: 1;
@@ -4205,11 +4210,42 @@ canvas.donut-canvas {
   cursor: pointer;
 }
 .dashboard-widget-choice input {
+  appearance: none;
+  -webkit-appearance: none;
   flex: 0 0 auto;
   width: 20px;
   height: 20px;
   margin: 2px 0 0;
-  accent-color: var(--accent);
+  display: grid;
+  place-content: center;
+  border: 1.5px solid var(--border2);
+  border-radius: 6px;
+  background: var(--bg3);
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.dashboard-widget-choice input::before {
+  content: '';
+  width: 9px;
+  height: 5px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-right: 0;
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+  transition: transform .14s ease;
+}
+.dashboard-widget-choice input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.dashboard-widget-choice input:checked::before { transform: translateY(-1px) rotate(-45deg) scale(1); }
+.dashboard-widget-choice input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.dashboard-widget-choice input:disabled {
+  opacity: .45;
+  cursor: not-allowed;
 }
 .dashboard-widget-choice strong,
 .dashboard-widget-choice small {
@@ -7247,6 +7283,7 @@ label > svg {
   }
 
   .sidebar,
+  .main,
   .overlay,
   .ham-line {
     transition: none;
@@ -7575,20 +7612,20 @@ label > svg {
 }
 
 #page-dashboard .dashboard-top-grid .dashboard-heatmap {
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr);
   grid-template-rows: auto auto;
-  gap: 5px 9px;
+  gap: 8px 12px;
   overflow-x: auto;
-  padding: 4px 2px 0;
+  padding: 8px 4px 0;
 }
 
 #page-dashboard .dashboard-top-grid .dashboard-heatmap__months {
   grid-column: 2;
   grid-row: 1;
   display: grid;
-  grid-template-columns: repeat(var(--heatmap-columns), 10px);
-  gap: 4px;
-  justify-content: start;
+  grid-template-columns: repeat(var(--heatmap-columns), minmax(14px, 1fr));
+  gap: 6px;
+  justify-content: stretch;
   color: var(--dash-muted);
   font-size: 9px;
   font-weight: 800;
@@ -7602,28 +7639,28 @@ label > svg {
 #page-dashboard .dashboard-top-grid .dashboard-heatmap__days {
   grid-column: 1;
   grid-row: 2;
-  grid-template-rows: repeat(7, 10px);
-  gap: 4px;
+  grid-template-rows: repeat(7, 14px);
+  gap: 6px;
   align-items: center;
   color: var(--dash-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 #page-dashboard .dashboard-top-grid .dashboard-heatmap__cells {
   grid-column: 2;
   grid-row: 2;
   display: grid;
-  grid-template-columns: repeat(var(--heatmap-columns), 10px);
-  grid-template-rows: repeat(7, 10px);
-  gap: 4px;
-  justify-content: start;
+  grid-template-columns: repeat(var(--heatmap-columns), minmax(14px, 1fr));
+  grid-template-rows: repeat(7, 14px);
+  gap: 6px;
+  justify-content: stretch;
   min-width: 0;
 }
 
 #page-dashboard .dashboard-top-grid .dashboard-heatmap__cell {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
+  width: 100%;
+  height: 14px;
+  border-radius: 4px;
   display: block;
   color: transparent;
   font-size: 0;
@@ -7844,13 +7881,13 @@ label > svg {
   }
 
   #page-dashboard .dashboard-top-grid .dashboard-heatmap {
-    grid-template-columns: 30px minmax(300px, 1fr);
+    grid-template-columns: 38px minmax(440px, 1fr);
     overflow-x: auto;
   }
 
   #page-dashboard .dashboard-top-grid .dashboard-heatmap__cells,
   #page-dashboard .dashboard-top-grid .dashboard-heatmap__months {
-    min-width: 300px;
+    min-width: 440px;
   }
 }
 
